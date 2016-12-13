@@ -300,7 +300,7 @@ int line(int x, int y){
     }
   }
 
-  //printf("mm=%d\n",mm);
+  printf("mm=%d\n",mm);
   
   if(mm == -2){//置いたタイルの赤、白どちらのラインも既存のタイルがつながる場合
     for(n=0; n<10; n++){
@@ -513,7 +513,6 @@ int line(int x, int y){
 
 }
 
-
 int place(int x, int y, int tile, int bb[], int *bb_cnt)
 {
   int i;
@@ -525,11 +524,15 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   int nn;
   int cnt=0;
 
+  
+    
   for(i=0; i<10; i++){
     loop_force[i][0] = 0;
     loop_force[i][1] = 0;
    }
   force_flag = 0;
+  
+
 
   if( board[x][y] != BLANK ) return -1;
   if( PlaceableTile[board[x + 1][y]][board[x][y - 1]][board[x - 1][y]][board[x][y + 1]] & (1 << tile) ){
@@ -545,13 +548,16 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
     if( y < y_min ) y_min = y;
     else if( y > y_max ) y_max = y;
 
+    
 
     tile_bit = tile;
     printf("tile = %d UPPER = %d LOWER = %d LEFT = %d RIGHT = %d\n",tile_bit, tile_bit & UPPER, tile_bit & LOWER, tile_bit & LEFT, tile_bit & RIGHT);
 
+
+
     if(force_flag==1){//強制手が発生する場合
 
-      for(nn=0; nn<20; nn++){
+      for(nn=0; nn<10; nn++){
 	if(loop_force[nn][0] != 0)
         line(loop_force[nn][0], loop_force[nn][1]);
       }
@@ -564,6 +570,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       if(board[x][y-1])cnt++;
       if(board[x][y+1])cnt++;
 
+     
       for(n=0; n<20; n++){
 	tile_bit = tile;
 	for(m=0; m<2; m++){
@@ -593,6 +600,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
 
     }
+     
 
     for(n=0;n<20;n++){
       if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
@@ -605,16 +613,16 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
         }
       }
     }
-
+   
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
-	if(end[n][m] != 0 || start[n][m]){
+	if(end[n][m] != 0 || start[n][m] != 0 ){
 	  if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
 	    printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
 	}
       }
     }
-
+   
     return 1;
   }
   return -1;
