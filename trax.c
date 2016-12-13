@@ -268,6 +268,46 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
 }
 
 
+void reach(){
+  int n, m;
+  int reach_flag=0;
+  int x,y;
+
+  for(n=0; n<20; n++){
+    for(m=0; m<2; m++){
+      if(end[n][m] != 0 || start[n][m] != 0 ){
+
+	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 1 && loop_end_next[n][1][m] == loop_start_next[n][1][m]) {
+	  reach_flag=1;
+	  x=loop_end_next[n][0][m];
+	  y=loop_end_next[n][1][m];
+	}
+	if(loop_end_next[n][0][m] == loop_start_next[n][0][m] && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 1) {
+	  reach_flag=1;
+	  x=loop_end_next[n][0][m];
+          y=loop_end_next[n][1][m];
+	}
+	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 2 && loop_end_next[n][1][m] == loop_start_next[n][1][m] 
+	    && loop_end[n][1][m] != loop_end_next[n][1][m] && loop_start[n][1][m] != loop_start_next[n][1][m]) {
+	  reach_flag=1;
+	  if(loop_end_next[n][0][m] > loop_start_next[n][0][m]){x = loop_end_next[n][0][m]-1; y = loop_end_next[n][1][m];}
+	  else {x = loop_end_next[n][0][m]+1; y = loop_end_next[n][1][m];} 
+	}
+	if( loop_end_next[n][0][m] == loop_start_next[n][0][m]  && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 2
+	    && loop_end[n][0][m] != loop_end_next[n][0][m] && loop_start[n][0][m] != loop_start_next[n][0][m]) { 
+	  reach_flag=1;
+	  if(loop_end_next[n][1][m] > loop_start_next[n][1][m]){x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]-1;}
+	  else {x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]+1;}
+	}
+	
+      }
+    }
+  }
+  
+
+  if(reach_flag)printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
+
+}
 
 int line(int x, int y){
 
@@ -623,6 +663,8 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
     }
    
+    reach();
+
     return 1;
   }
   return -1;
