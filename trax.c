@@ -217,7 +217,7 @@ int sn_convert_place(char s[]){
 
 int loop_make(int x, int y, unsigned char tile, int n, int m){
 
-  printf("x = %d y = %d tile = %d n = %d m = %d \n\n", x, y, tile, n, m);
+  printf("x = %d y = %d tile = %d n = %d m = %d \n", x, y, tile, n, m);
 
   int temp;
   int k=0,i;
@@ -269,17 +269,17 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
 
 
 
-void initial_line(int x, int y){
+int line(int x, int y){
 
-  int n, m, n1, m1, n2, m2, x1=x,y1=y; 
-  int initial_flag=0;
+  int n, m, n1=-1, m1=-1, n2=-1, m2=-1, x1=x,y1=y; 
+  int vect_flag=0;
   int change=0;
   unsigned char tile_bit;
   int i,end_start1,end_start2;
   int mm=-1;
+  int loop_flag=0;
 
-
-  printf("x=%d y=%d\n", x, y);
+  // printf("x=%d y=%d\n", x, y);
 
   for(n=0; n<10; n++){
     tile_bit = board[x][y];
@@ -289,16 +289,20 @@ void initial_line(int x, int y){
       if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
 	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
 	else mm = m;
-      }else if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
+	loop_flag=1;
+      }
+      if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
 	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
-	else mm = m; 
-      }   
+	else mm = m;
+	if(loop_flag==1){printf("ループが見つかりました。x=%d y=%d\n",x,y); return 0;}
+      }
+      loop_flag=0;
     }
   }
 
-  printf("mm=%d\n",mm);
+  //printf("mm=%d\n",mm);
   
-  if(mm == -2){
+  if(mm == -2){//置いたタイルの赤、白どちらのラインも既存のタイルがつながる場合
     for(n=0; n<10; n++){
       tile_bit = board[x][y];
       for(m=0; m<2; m++){
@@ -337,7 +341,7 @@ void initial_line(int x, int y){
 	    change = tile_bit - end[n][m];
 	    loop_end[n][0][m] =x;
             loop_end[n][1][m]= y;
-	    if(initial_flag==0){
+	    if(vect_flag==0){
 	      loop_make(x, y, tile_bit, n, m);
 	      n1=n; m1=m, end_start1=0;
 	    }else{ n2=n; m2=m; end_start2=0;}
@@ -345,12 +349,12 @@ void initial_line(int x, int y){
 	    else if(change == LEFT){ end[n][m] = RIGHT; loop_end_next[n][0][m] -= 1;}
 	    else if(change == UPPER){ end[n][m] = LOWER; loop_end_next[n][1][m] -= 1; }
 	    else if(change == LOWER){ end[n][m] = UPPER; loop_end_next[n][1][m] += 1; }
-	    initial_flag++;
+	    vect_flag++;
 	  }else if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
 	    change = tile_bit - start[n][m];
 	    loop_start[n][0][m]=x;
             loop_start[n][1][m]= y;
-	    if(initial_flag==0){
+	    if(vect_flag==0){
 	      loop_make(x, y, tile_bit, n , m);
 	      n1=n; m1=m; end_start1=1; 
 	    }else{ n2=n; m2=m; end_start2=1;}
@@ -358,15 +362,16 @@ void initial_line(int x, int y){
 	    else if(change == LEFT){ start[n][m] = RIGHT; loop_start_next[n][0][m] -= 1;}
 	    else if(change == UPPER){ start[n][m] = LOWER; loop_start_next[n][1][m] -= 1; }
 	    else if(change == LOWER){ start[n][m] = UPPER; loop_start_next[n][1][m] += 1; }
-	    initial_flag++;
+	    vect_flag++;
 	  }
 	}
       }
     }
     
+    //printf("vect_flag=%d n1=%d m1=%d n2=%d m2=%d\n",vect_flag, n1, m1, n2, m2);
     
     
-    if(initial_flag==2){
+    if(vect_flag==2){//赤または白のラインのstart,end双方向にタイルがつながる場合
       if(end_start1==0){
 	if(end_start2==0){
 	  loop_end_next[n1][0][m1] = loop_start_next[n2][0][m2];
@@ -412,9 +417,9 @@ void initial_line(int x, int y){
   }
 
 
-  if(initial_flag == 0 && mm==-1){ 
+  if(vect_flag == 0 && mm==-1){ //4方向にタイルがなく新しく2本のライン情報を記録する場合
     
-    for(n=0; n<10; n++) if((loop_end[n][0][0] == 0 && loop_start[n][0][0] == 0) || (loop_end[n][0][1] == 0 && loop_start[n][0][1]==0) ) break;
+    for(n=0; n<20; n++) if((loop_end[n][0][0] == 0 && loop_start[n][0][0] == 0) || (loop_end[n][0][1] == 0 && loop_start[n][0][1]==0) ) break; //空いている配列を探す
     
     for(m=0; m<2; m++){
       loop_start[n][0][m]=x;
@@ -504,7 +509,7 @@ void initial_line(int x, int y){
     }
   }
   
-  
+  return 0;
 
 }
 
@@ -517,24 +522,13 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   int change = 0;
   int next = 0;
   unsigned char tile_bit;
-  int temp[2];
-  int nn,t, j;
-  int N[10],M[10], NN[10], MM[10];
-  int k=0, l=0, end_start[10];
-  int kk=0,ll=0;
-  int flag=0;
-  int xx=0, yy=0;
+  int nn;
   int cnt=0;
 
   for(i=0; i<10; i++){
     loop_force[i][0] = 0;
     loop_force[i][1] = 0;
-    N[i]=-1;
-    M[i]=-1;
-    NN[i]=-1;
-    MM[i]=-1;
-    end_start[i] = -1;
-  }
+   }
   force_flag = 0;
 
   if( board[x][y] != BLANK ) return -1;
@@ -555,28 +549,26 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
     tile_bit = tile;
     printf("tile = %d UPPER = %d LOWER = %d LEFT = %d RIGHT = %d\n",tile_bit, tile_bit & UPPER, tile_bit & LOWER, tile_bit & LEFT, tile_bit & RIGHT);
 
+    if(force_flag==1){//強制手が発生する場合
 
-
-
-    if(force_flag==1){
-
-      for(nn=0; nn<10; nn++){
+      for(nn=0; nn<20; nn++){
 	if(loop_force[nn][0] != 0)
-        initial_line(loop_force[nn][0], loop_force[nn][1]);
+        line(loop_force[nn][0], loop_force[nn][1]);
       }
 
-    }else{
-      printf("test\n");
+    }else{//強制手が発生しない場合
+
+      //片方か双方かをチェック
       if(board[x-1][y])cnt++;
       if(board[x+1][y])cnt++;
       if(board[x][y-1])cnt++;
       if(board[x][y+1])cnt++;
 
-      for(n=0; n<10; n++){
+      for(n=0; n<20; n++){
 	tile_bit = tile;
 	for(m=0; m<2; m++){
 	  if(loop_start[n][0][m] != 0 || loop_end[n][0][m] != 0){
-	    if(m==1) tile_bit = 0x0f & ~tile_bit;
+	    if(m==1) tile_bit = 0x0f & ~tile_bit; //白のラインを見る場合はタイルのビットを反転する
 	    if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
 	      change = tile_bit - end[n][m];
 	      if(change == RIGHT){ end[n][m] = LEFT; loop_end_next[n][0][m] += 1; }
@@ -585,7 +577,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 	      else if(change == LOWER){ end[n][m] = UPPER; loop_end_next[n][1][m] += 1; }
 	      loop_end[n][0][m] =x;
 	      loop_end[n][1][m]= y;
-	      if(cnt==1) loop_make(x, y, tile_bit, n, m);
+	      if(cnt==1) loop_make(x, y, tile_bit, n, m); //片方向に繋がる場合のみ新しくラインを記憶する
 	    }else if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
 	      change = tile_bit - start[n][m];
 	      if(change == RIGHT){ start[n][m] = LEFT; loop_start_next[n][0][m] += 1; }
@@ -614,13 +606,14 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
     }
 
-    for(n=0; n<10; n++){
+    for(n=0; n<20; n++){
       for(m=0; m<2; m++){
-        if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
-          printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
+	if(end[n][m] != 0 || start[n][m]){
+	  if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
+	    printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
+	}
       }
     }
-
 
     return 1;
   }
@@ -721,7 +714,8 @@ int main(){
     else if( strncmp(&s[j], "BL", 2)==0 ) board[BMAX_2 + i % w][BMAX_2 + i / w] = LLW;
     else if( strncmp(&s[j], "0", 1)==0 )   board[BMAX_2 + i % w][BMAX_2 + i / w] = 0;
     else fprintf(stderr, "Parse error\n");
-    if( board[BMAX_2 + i % w][BMAX_2 + i / w] != 0 ) {initial_line(BMAX_2 + i % w, BMAX_2 + i / w);
+    if( board[BMAX_2 + i % w][BMAX_2 + i / w] != 0 ) {
+      line(BMAX_2 + i % w, BMAX_2 + i / w);
       printf("s[%d] = %s %d %d\n", i, s, BMAX_2 + i % w, BMAX_2 + i / w);}
   }
 
