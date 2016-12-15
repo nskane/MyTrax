@@ -6,6 +6,7 @@
 
 #define BMAX 512
 #define BMAX_2 (512/2)
+#define MAX_DEPTH 32
 
 #define BLANK 0x00
 #define RED   1
@@ -29,9 +30,6 @@
 
 #define loop_number 20
 
-
-int board[BMAX][BMAX];
-
 int loop_start[loop_number][2][2];
 int loop_start_next[loop_number][2][2];
 int start[loop_number][2];
@@ -40,16 +38,28 @@ int loop_end_next[loop_number][2][2];
 int end[loop_number][2];
 int force_flag = 0;
 int loop_force[10][2];
+int loop_win = -1;
+
+int board[BMAX][BMAX];
 char ForceTile[LLW+1][LLW+1][LLW+1][LLW+1];
 unsigned short PlaceableTile[LLW+1][LLW+1][LLW+1][LLW+1]; // 28561×2バイト＝56KB
 unsigned long long random_t[BMAX][BMAX][LLW+1];
 unsigned long long hash;
 
+#define HASHWIDTH 0xffffff
+unsigned long long HASH_TBL[HASHWIDTH+1]; // 2^24×64バイト＝512MB
+char WINLOSS[HASHWIDTH+1]; // 16MB
+unsigned int hash_cnt;
+
 int x_min, x_max, y_min, y_max;
+int max_depth;
+
+static int killer_x[MAX_DEPTH+1], killer_y[MAX_DEPTH+1], killer_t[MAX_DEPTH+1];
 
 char *color_s[3] = {"", "RED", "WHITE"};
 char mark[LLW+1] = {'\0','\0','\0','\\','\0','+','/','\0','\0','/','+','\0','\\'};
 char *b_string[LLW+1] = {" ", "", "", "\\","","+","\x1b[31m/\x1b[0m","","","/","\x1b[31m+\x1b[0m","","\x1b[31m\\\x1b[0m"};
+
 
 
 
@@ -268,9 +278,9 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
 }
 
 
-void reach(){
+void riichi(){
   int n, m;
-  int reach_flag=0;
+  int riichi_flag=0;
   int x,y;
 
   for(n=0; n<20; n++){
@@ -278,24 +288,24 @@ void reach(){
       if(end[n][m] != 0 || start[n][m] != 0 ){
 
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 1 && loop_end_next[n][1][m] == loop_start_next[n][1][m]) {
-	  reach_flag=1;
+	  riichi_flag=1;
 	  x=loop_end_next[n][0][m];
 	  y=loop_end_next[n][1][m];
 	}
 	if(loop_end_next[n][0][m] == loop_start_next[n][0][m] && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 1) {
-	  reach_flag=1;
+	  riichi_flag=1;
 	  x=loop_end_next[n][0][m];
           y=loop_end_next[n][1][m];
 	}
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 2 && loop_end_next[n][1][m] == loop_start_next[n][1][m] 
 	    && loop_end[n][1][m] != loop_end_next[n][1][m] && loop_start[n][1][m] != loop_start_next[n][1][m]) {
-	  reach_flag=1;
+	  riichi_flag=1;
 	  if(loop_end_next[n][0][m] > loop_start_next[n][0][m]){x = loop_end_next[n][0][m]-1; y = loop_end_next[n][1][m];}
 	  else {x = loop_end_next[n][0][m]+1; y = loop_end_next[n][1][m];} 
 	}
 	if( loop_end_next[n][0][m] == loop_start_next[n][0][m]  && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 2
 	    && loop_end[n][0][m] != loop_end_next[n][0][m] && loop_start[n][0][m] != loop_start_next[n][0][m]) { 
-	  reach_flag=1;
+	  riichi_flag=1;
 	  if(loop_end_next[n][1][m] > loop_start_next[n][1][m]){x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]-1;}
 	  else {x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]+1;}
 	}
@@ -305,7 +315,7 @@ void reach(){
   }
   
 
-  if(reach_flag)printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
+  if(riichi_flag)printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
 
 }
 
@@ -317,7 +327,8 @@ int line(int x, int y){
   unsigned char tile_bit;
   int i,end_start1,end_start2;
   int mm=-1;
-  int loop_flag=0;
+
+  loop_win=0;
 
   // printf("x=%d y=%d\n", x, y);
 
@@ -329,14 +340,14 @@ int line(int x, int y){
       if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
 	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
 	else mm = m;
-	loop_flag=1;
+	loop_win=1;
       }
       if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
 	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
 	else mm = m;
-	if(loop_flag==1){printf("ループが見つかりました。x=%d y=%d\n",x,y); return 0;}
+	if(loop_win==1){printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm); loop_win = mm; return 0;}
       }
-      loop_flag=0;
+      loop_win=0;
     }
   }
 
@@ -663,7 +674,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
     }
    
-    reach();
+    riichi();
 
     return 1;
   }
@@ -671,6 +682,65 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 }
 
 
+int search(int *rx, int *ry, int *rt, int color, int depth){
+  int i, j, x, y, t, ret;
+  int fin = 0;
+  int x_min_backup = x_min;
+  int x_max_backup = x_max;
+  int y_min_backup = y_min;
+  int y_max_backup = y_max;
+  int bb[10000], bb_cnt;
+  unsigned long long hash_backup = hash;
+  int px[10000], py[10000], pt[100000];
+  int p_cnt;
+  int myriichi, yrriichi;
+
+  //ハッシュの利用
+  if( depth > 1){
+    if (HASH_TBL[hash & HASHWIDTH] == (hash | (color -1))){
+      return WINLOSS[hash & HASHWIDTH]; //ハッシュ登録済み
+    }
+  }
+  
+  if( depth > 1 ){
+    x = killer_x[depth];
+    y = killer_y[depth];
+    t = killer_t[depth];
+    
+    if(board[x][y] == BLANK){
+      if(board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1]){
+	if(place(x, y, t, bb, &bb_cnt) == 1){
+	  fin = 1;
+	}else{
+	  if(depth < max_depth){
+	    int falg = 0;
+	  }
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+
+
+int search_place(int turn, char s[], int color){
+
+  int x,y,t;
+  int x_min_backup = x_min;
+  int y_min_backup = y_min;
+  int ret;
+  int bb[256], bb_cnt;
+
+  for(max_depth = 1; max_depth <= MAX_DEPTH; max_depth += 2){
+    fprintf(stderr, "************ 探索深さ = %2d ************\n", max_depth);
+    bzero(HASH_TBL, sizeof(HASH_TBL));
+    ret = search(&x, &y, &t, color, 1);
+    if( ret ) break;
+  }
+
+  return 0;
+}
 
 
 
@@ -697,19 +767,18 @@ void show(){
 }
 
 int main(){
-  int i, j;
+  int i, j, h ,w;
   int turn = 1;
   int ret;
   char s[16];
   char ss[16];
   int mycolor;
   char notation[300][16];
-  int saikai = 0; 
   int bb[256], bb_cnt;
   int rand = 0;
   int _time = -1;
   int n,m,l;
-  int h,w;
+  char in;
 
   for(n=0; n<20; n++){
     for(m=0; m<2; m++){
@@ -727,6 +796,12 @@ int main(){
   
   initForceTile();
 
+
+  //初期化重要
+  for(i = 1; i <= MAX_DEPTH; i++){   //※重要※  有効な手を入れておかなくてはならない
+    killer_x[i] = killer_y[i] = BMAX_2;
+    killer_t[i] = VW;
+  }
 
 
   if( _time == -1 ) _time = time(NULL);
@@ -775,6 +850,17 @@ int main(){
   show();
 
   
+  fprintf(stderr, "次の手番は白番ですか？ (Y/N)\n");
+
+  while(1){
+    in = getc(stdin);
+    if( in == 'Y' || in == 'y' || in == 'N' || in == 'n' ) break;
+  }
+  if( in=='Y' || in=='y' ) mycolor = WHITE;
+  else mycolor = RED;
+
+  ret = search_place(turn, s, mycolor);
+
   
   for(n=0;n<20;n++){
     if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
