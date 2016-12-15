@@ -774,7 +774,7 @@ int main(){
   y_max = y_min + h - 1;
   show();
 
-
+  
   
   for(n=0;n<20;n++){
     if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
