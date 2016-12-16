@@ -41,7 +41,7 @@ int end[loop_number][2];
 int force_flag = 0;
 int loop_force[10][2];
 int loop_win = -1;
-int riichi_flag=0;
+int riichi=-1;
 
 int board[BMAX][BMAX];
 char ForceTile[LLW+1][LLW+1][LLW+1][LLW+1];
@@ -131,7 +131,6 @@ int force_place(int x,int y, int tile, int bb[], int *bb_cnt){
   
   loop_force[*bb_cnt-1][0]=x;
   loop_force[*bb_cnt-1][1]=y;
-
 
   if( board[x + 1][y] == BLANK ){ // 右強制手処理
     t = ForceTile[board[x + 2][y]][board[x + 1][y - 1]][board[x][y]][board[x + 1][y + 1]];
@@ -230,11 +229,10 @@ int sn_convert_place(char s[]){
 
 int loop_make(int x, int y, unsigned char tile, int n, int m){
 
-  printf("x = %d y = %d tile = %d n = %d m = %d \n", x, y, tile, n, m);
+  //printf("x = %d y = %d tile = %d n = %d m = %d \n", x, y, tile, n, m);
 
   int temp;
   int k=0,i;
-
  
 
   temp = 0x0f & ~tile;
@@ -281,47 +279,44 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
 }
 
 
-void riichi(){
+void Riichi(){
   int n, m;
   int x,y;
 
-  riichi_flag=0;
-
+  riichi=-1;
+  
   for(n=0; n<20; n++){
     for(m=0; m<2; m++){
       if(end[n][m] != 0 || start[n][m] != 0 ){
 	
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 1 && loop_end_next[n][1][m] == loop_start_next[n][1][m]) {
-	  riichi_flag=1;
-	  loop_win=m;
+	  riichi=m;
 	  x=loop_end_next[n][0][m];
 	  y=loop_end_next[n][1][m];
 	}
 	if(loop_end_next[n][0][m] == loop_start_next[n][0][m] && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 1) {
-	  riichi_flag=1;
-	  loop_win=m;
+	  riichi=m;
 	  x=loop_end_next[n][0][m];
           y=loop_end_next[n][1][m];
 	}
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 2 && loop_end_next[n][1][m] == loop_start_next[n][1][m] 
 	    && loop_end[n][1][m] != loop_end_next[n][1][m] && loop_start[n][1][m] != loop_start_next[n][1][m]) {
 	  if(loop_end_next[n][0][m] > loop_start_next[n][0][m]){ x = loop_end_next[n][0][m]-1; y = loop_end_next[n][1][m]; }
-	  else { x = loop_end_next[n][0][m]+1; y = loop_end_next[n][1][m]; } 
+	  else { x = loop_end_next[n][0][m]+1; y = loop_end_next[n][1][m]; }
+	  riichi=m;
 	}
 	if( loop_end_next[n][0][m] == loop_start_next[n][0][m]  && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 2
 	    && loop_end[n][0][m] != loop_end_next[n][0][m] && loop_start[n][0][m] != loop_start_next[n][0][m]) { 
-	  riichi_flag=1;
-	  loop_win=m;
 	  if(loop_end_next[n][1][m] > loop_start_next[n][1][m]){x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]-1;}
 	  else { x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]+1; }
+	riichi=m;
 	}
-	
       }
     }
   }
   
 
-  if(riichi_flag)printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
+  //if( riichi !=-1 )printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
 
 }
 
@@ -334,7 +329,7 @@ int line(int x, int y){
   int i,end_start1,end_start2;
   int mm=-1;
 
-  loop_win=0;
+  loop_win=-1;
 
   // printf("x=%d y=%d\n", x, y);
 
@@ -353,11 +348,11 @@ int line(int x, int y){
 	else mm = m;
 	if(loop_win==1){printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm); loop_win = mm; return 0;}
       }
-      loop_win=0;
+      loop_win=-1;
     }
   }
 
-  printf("mm=%d\n",mm);
+  //printf("mm=%d\n",mm);
   
   if(mm == -2){//置いたタイルの赤、白どちらのラインも既存のタイルがつながる場合
     for(n=0; n<10; n++){
@@ -608,7 +603,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
     
 
     tile_bit = tile;
-    printf("tile = %d UPPER = %d LOWER = %d LEFT = %d RIGHT = %d\n",tile_bit, tile_bit & UPPER, tile_bit & LOWER, tile_bit & LEFT, tile_bit & RIGHT);
+    //printf("tile = %d UPPER = %d LOWER = %d LEFT = %d RIGHT = %d\n",tile_bit, tile_bit & UPPER, tile_bit & LOWER, tile_bit & LEFT, tile_bit & RIGHT);
 
 
 
@@ -658,7 +653,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 
     }
      
-
+    
     for(n=0;n<20;n++){
       if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
         printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -669,7 +664,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
                  n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
         }
       }
-    }
+      }
    
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
@@ -680,7 +675,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
     }
    
-    riichi();
+    Riichi();
 
     return 1;
   }
@@ -688,6 +683,184 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 }
 
 int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
+  int i, j, x, y, t, ret;
+  int fin=0;
+  int x_min_backup = x_min;
+  int x_max_backup = x_max;
+  int y_min_backup = y_min;
+  int y_max_backup = y_max;
+  int bb[10000], bb_cnt;
+  unsigned long long hash_backup = hash;
+  int p_cnt = 0;
+  int myriichi, yrriichi;
+
+  int n, m;
+
+  int loop_start_backup[loop_number][2][2];
+  int loop_start_next_backup[loop_number][2][2];
+  int start_backup[loop_number][2];
+  int loop_end_backup[loop_number][2][2];
+  int loop_end_next_backup[loop_number][2][2];
+  int end_backup[loop_number][2];
+
+  //ハッシュの利用
+  if( HASH_TBL[hash & HASHWIDTH] == ( hash | (color-1) ) ){
+    return WINLOSS[hash & HASHWIDTH];
+  }
+
+  //キラームーブチェック
+  x = killer_x[depth];
+  y = killer_y[depth];
+  t = killer_t[depth];
+
+  for(n=0;n<20;n++){
+    end_backup[n][0] = end[n][0];
+    end_backup[n][1] = end[n][1];
+    start_backup[n][0] = start[n][0];
+    start_backup[n][1] = start[n][1];
+    for(m=0; m<2; m++) {
+      loop_end_backup[n][0][m] = loop_end[n][0][m];
+      loop_end_backup[n][1][m] = loop_end[n][1][m];
+      loop_start_backup[n][0][m] = loop_start[n][0][m];
+      loop_start_backup[n][1][m] = loop_start[n][1][m];
+      loop_end_next_backup[n][0][m] = loop_end_next[n][0][m];
+      loop_end_next_backup[n][1][m] = loop_end_next[n][1][m];
+      loop_start_next_backup[n][0][m] = loop_start_next[n][0][m];
+      loop_start_next_backup[n][1][m] = loop_start_next[n][1][m];
+    }
+  }
+
+  if( board[x][y] == BLANK ){
+    if( board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1] ){
+      if( place(x, y, t, bb, &bb_cnt ) == 1 ){
+	if( loop_win == color-1 ){ // 自分のループができた
+	  fin = 1;
+	}else{
+	  if( depth < max_depth ){
+	    int flag = 0;
+	    if( loop_win == 2-color ){ // 相手のループができた
+	      flag = 1;
+	    }
+	    if( flag==0 ){
+	      int ret;
+	      int _rx, _ry, _rt;
+	      ret = search( &_rx, &_ry, &_rt, 3-color, depth+1 );
+	      if( ret == color ){
+		fin = 1; //自分が勝つ
+	      }
+	    }
+	  }
+	}
+	for( j=0; j<bb_cnt; j++) board[bb[j] >> 10][bb[j] & 0x3ff] = 0;
+	hash = hash_backup;
+	x_min = x_min_backup;
+	x_max = x_max_backup;
+	y_min = y_min_backup;
+	y_max = y_max_backup;
+	for(n=0;n<20;n++){
+	  end[n][0] = end_backup[n][0];
+	  end[n][1] = end_backup[n][1];
+	  start[n][0] = start_backup[n][0];
+	  start[n][1] = start_backup[n][1];
+	  for(m=0; m<2; m++) {
+	    loop_end[n][0][m] = loop_end_backup[n][0][m];
+	    loop_end[n][1][m] = loop_end_backup[n][1][m];
+	    loop_start[n][0][m] = loop_start_backup[n][0][m];
+	    loop_start[n][1][m] = loop_start_backup[n][1][m];
+	    loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
+	    loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
+	    loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
+	    loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
+	  }
+	}
+	if( fin == 1 ){
+	  return color;
+	}
+      }
+    }
+  }
+
+  for( y=y_min-1; y<=y_max+1; y++){
+    for( x=x_min-1; x<=x_max+1; x++){
+      if( board[x][y] ) continue;
+      if( board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1] ){
+	if( depth==2 ){
+	  if( x==x_min-1 ) fprintf(stderr, " d=%d %d %d @%d", depth, x, y, y-y_min+1);
+	  else fprintf(stderr, " d=%d %d %d %c%d", depth, x, y, x-x_min+'A', y-y_min+1);
+	}
+	for( i=0; i<6; i++){
+	  t = TLIST[i];
+	  if( place( x, y, t, bb, &bb_cnt ) == 1 ){
+	    if( loop_win == color-1 ){ //自分のループができた
+	      killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
+	      fin = 1;
+	    }else{ // 相手のループを確認
+	      int flag = 1;
+	      if( loop_win == 2-color ){
+		flag = 1;
+	      }
+	      if( flag == 0 ){
+		if( depth < max_depth ){
+		  int ret;
+		  int _rx, _ry, _rt;
+		  ret = search(&_rx, &_ry, &_rt, 3-color, depth + 1);
+		  if( ret == color ){
+		    if( depth == 2 ) fprintf(stderr, "%c(K) ", mark[t]);
+		    killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
+		    fin = 1;//自分が勝つ
+			      }else if( ret == 3-color ){
+		    if( depth==2 ) fprintf(stderr, "%c(M) ", mark[t]);
+		    //何もしない
+		  }else{
+		    if( depth==2 ) fprintf(stderr, " %c ", mark[t]);
+		    p_cnt++;
+		  }
+		}else{ //末端(depth == max_depth)
+		  if( depth==2 ) fprintf(stderr, " %c ", mark[t]);
+		  p_cnt++;
+		}
+	      }else{
+		if( depth==2 ) fprintf(stderr, " %c(M) ", mark[t]);
+	      }
+	    }
+	    for( j=0; j<bb_cnt; j++ ) board[bb[j] >> 10][bb[j] & 0x3ff] = 0;
+	    hash = hash_backup;
+	    x_min = x_min_backup; x_max = x_max_backup;
+	    y_min = y_min_backup; y_max = y_max_backup;
+	    for(n=0;n<20;n++){
+	      end[n][0] = end_backup[n][0];
+	      end[n][1] = end_backup[n][1];
+	      start[n][0] = start_backup[n][0];
+	      start[n][1] = start_backup[n][1];
+	      for(m=0; m<2; m++) {
+		loop_end[n][0][m] = loop_end_backup[n][0][m];
+		loop_end[n][1][m] = loop_end_backup[n][1][m];
+		loop_start[n][0][m] = loop_start_backup[n][0][m];
+		loop_start[n][1][m] = loop_start_backup[n][1][m];
+		loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
+		loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
+		loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
+		loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
+	      }
+	    }
+	    if( fin == 1 ){
+	      *rx = x;
+	      *ry = y;
+	      *rt = t;
+	      return color;
+	    }
+	  }
+	}
+      }
+    }
+  }
+    if( p_cnt == 0 ) {
+  HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
+  WINLOSS[hash & HASHWIDTH] = 3 - color; //ハッシュ登録
+  hash_cnt++;
+  return 3 - color;
+ }
+return 0;
 }
 
 int search(int *rx, int *ry, int *rt, int color, int depth){
@@ -699,11 +872,11 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
   int y_max_backup = y_max;
   int bb[10000], bb_cnt;
   unsigned long long hash_backup = hash;
-  int px[10000], py[10000], pt[100000];
-  int p_cnt;
+  int px[10000], py[10000], pt[10000];
+  int p_cnt=0;
   int myriichi, yrriichi;
 
-  int yrcolor;
+
   int n, m;
 
   int loop_start_backup[loop_number][2][2];
@@ -715,8 +888,6 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 
 
 
-  if(color==RED) yrcolor = WHITE; 
-  else yrcolor = RED;
 
   for(n=0;n<20;n++){
       end_backup[n][0] = end[n][0];
@@ -750,13 +921,13 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     
     if(board[x][y] == BLANK){
       if(board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1]){
-	if(place(x, y, t, bb, &bb_cnt) == 1){
-	  if(loop_win == color-1){ //自分のloopができた
+	if( place(x, y, t, bb, &bb_cnt) == 1 ){
+	  if( loop_win == color-1 ){ //自分のloopができた
 	    fin = 1;
 	  }else{
 	    if( depth < max_depth ){
 	      int flag=0;
-	      if(loop_win == yrcolor){
+	      if( loop_win == 2-color  ){
 		flag = 1;
 	      }
 	      if(flag == 0){ //相手のループはできていない
@@ -799,10 +970,10 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     }
   }
 
-  for( y=y_min -1; y<=y_max; y++ ){
+  for( y=y_min -1; y<=y_max+1; y++ ){
     for (x=x_min-1; x<=x_max+1; x++ ){
       if( board[x][y] ) continue;
-      if( board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y-1] ){
+      if( board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1] ){
 	if( depth == 1 ){
 	  if( x == x_min-1 ) fprintf(stderr, "d=%d %d %d @%d", depth, x, y, y-y_min+1);
 	  else fprintf(stderr, "d=%d %d %d %c%d", depth, x, y, x-x_min + 'A', y-y_min+1);
@@ -816,12 +987,12 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	      fin=1;
 	    }else{
 	      int flag=0;
-	      if(loop_win == yrcolor-1){
+	      if(loop_win == 2- color){
 		flag = 1;
 	      }
-	      if( flag == 0 && riichi_flag==0 ){
+	      if( flag == 0 && riichi==-1 ){
 		//相手のループはできていないしリーチもしていないから読まない
-	      }else if( flag==0 && riichi_flag==1 && loop_win == color-1 ){ //相手のループはできていない。自分がリーチ状態
+	      }else if( flag==0 && riichi == color-1 ){ //相手のループはできていない。自分がリーチ状態
 		if( depth<max_depth ){
 		  int ret;
 		  int _rx, _ry, _rt;
@@ -836,17 +1007,17 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 		    if( depth==1 ) fprintf(stderr, "%c(L)", mark[t]);
 		  }else{ //勝敗がつかない
 		    if( depth==1 ){
-		      if( riichi_flag==1 && loop_win == color-1) fprintf(stderr, " %c(R)", mark[t]);
+		      if( riichi == color-1 ) fprintf(stderr, " %c(R)", mark[t]);
 		      else fprintf(stderr, " %c", mark[t]);
-		      if( riichi_flag==1 && loop_win == color-1) px[p_cnt] = x; py[p_cnt] = y; pt[p_cnt] = t;
+		      if( riichi == color-1) px[p_cnt] = x; py[p_cnt] = y; pt[p_cnt] = t;
 		    }
 		    p_cnt++;
 		  }
 		}else{ //末端(depth==max_depth)
 		  if( depth==1 ){ //MAX_DEPTH と depthの両方とも1のとき
-		    if( riichi_flag==1 && loop_win == color-1)  fprintf(stderr, " %c(R)", mark[t]);
+		    if( riichi == color-1)  fprintf(stderr, " %c(R)", mark[t]);
 		    else fprintf(stderr, " %c", mark[t]);
-		    if( riichi_flag==1 && loop_win == color-1) {
+		    if( riichi == color-1) {
 		      px[p_cnt]=x; py[p_cnt]=y; pt[p_cnt]=t;
 		    }
 		  }
@@ -860,7 +1031,25 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	    hash = hash_backup;
 	    x_min = x_min_backup; x_max = x_max_backup;
 	    y_min = y_min_backup; y_max = y_max_backup;
-	    
+
+	    for(n=0;n<20;n++){
+	      end[n][0] = end_backup[n][0];
+	      end[n][1] = end_backup[n][1];
+	      start[n][0] = start_backup[n][0];
+	      start[n][1] = start_backup[n][1];
+	      for(m=0; m<2; m++) {
+		loop_end[n][0][m] = loop_end_backup[n][0][m];
+		loop_end[n][1][m] = loop_end_backup[n][1][m];
+		loop_start[n][0][m] = loop_start_backup[n][0][m];
+		loop_start[n][1][m] = loop_start_backup[n][1][m];
+		loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
+		loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
+		loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
+		loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
+	      }
+	    }
+
+
 	    if( fin == 1 ){
 	      HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
 	      WINLOSS[hash & HASHWIDTH] = color; //ハッシュ登録
@@ -1026,7 +1215,7 @@ int main(){
   if( in=='Y' || in=='y' ) mycolor = WHITE;
   else mycolor = RED;
 
-  ret = search_place(turn, s, mycolor);
+  //  ret = search_place(turn, s, mycolor);
 
   
   for(n=0;n<20;n++){
@@ -1039,7 +1228,7 @@ int main(){
 	       n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
       }
     }
-  }
+    }
   
 
   
