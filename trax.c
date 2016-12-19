@@ -328,10 +328,11 @@ int line(int x, int y){
   unsigned char tile_bit;
   int i,end_start1,end_start2;
   int mm=-1;
+  int vect_cnt=0;
 
   loop_win=-1;
 
-  // printf("x=%d y=%d\n", x, y);
+  //printf("x=%d y=%d\n", x, y);
 
   for(n=0; n<10; n++){
     tile_bit = board[x][y];
@@ -339,13 +340,15 @@ int line(int x, int y){
       if(m==1) tile_bit = 0x0f & ~tile_bit;
       
       if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
-	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
+	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) )  mm = -2;
 	else mm = m;
 	loop_win=1;
+	vect_cnt++;
       }
       if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
 	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
 	else mm = m;
+	vect_cnt++;
 	if(loop_win==1){printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm); loop_win = mm; return 0;}
       }
       loop_win=-1;
@@ -354,7 +357,7 @@ int line(int x, int y){
 
   //printf("mm=%d\n",mm);
   
-  if(mm == -2){//置いたタイルの赤、白どちらのラインも既存のタイルがつながる場合
+  if(mm == -2 && vect_cnt!=3 ){//置いたタイルの赤、白どちらのラインもendかstartの片方に既存のタイルがつながる場合
     for(n=0; n<10; n++){
       tile_bit = board[x][y];
       for(m=0; m<2; m++){
@@ -393,8 +396,8 @@ int line(int x, int y){
 	    change = tile_bit - end[n][m];
 	    loop_end[n][0][m] =x;
             loop_end[n][1][m]= y;
-	    if(vect_flag==0){
-	      loop_make(x, y, tile_bit, n, m);
+	    if( vect_flag==0 ){
+	      if( vect_cnt!=3 ) loop_make(x, y, tile_bit, n, m);
 	      n1=n; m1=m, end_start1=0;
 	    }else{ n2=n; m2=m; end_start2=0;}
 	    if(change == RIGHT){ end[n][m] = LEFT; loop_end_next[n][0][m] += 1; }
@@ -406,8 +409,8 @@ int line(int x, int y){
 	    change = tile_bit - start[n][m];
 	    loop_start[n][0][m]=x;
             loop_start[n][1][m]= y;
-	    if(vect_flag==0){
-	      loop_make(x, y, tile_bit, n , m);
+	    if( vect_flag==0 ){
+	      if( vect_cnt!=3 )loop_make(x, y, tile_bit, n , m);
 	      n1=n; m1=m; end_start1=1; 
 	    }else{ n2=n; m2=m; end_start2=1;}
 	    if(change == RIGHT){ start[n][m] = LEFT; loop_start_next[n][0][m] += 1; }
@@ -420,10 +423,9 @@ int line(int x, int y){
       }
     }
     
-    //printf("vect_flag=%d n1=%d m1=%d n2=%d m2=%d\n",vect_flag, n1, m1, n2, m2);
+  
     
-    
-    if(vect_flag==2){//赤または白のラインのstart,end双方向にタイルがつながる場合
+    if(vect_flag>=2){//赤または白のラインのstart,end双方向にタイルがつながる場合
       if(end_start1==0){
 	if(end_start2==0){
 	  loop_end_next[n1][0][m1] = loop_start_next[n2][0][m2];
@@ -653,7 +655,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 
     }
      
-    
+    /*
     for(n=0;n<20;n++){
       if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
         printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -665,7 +667,8 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
         }
       }
       }
-   
+    */
+
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
 	if(end[n][m] != 0 || start[n][m] != 0 ){
@@ -1215,9 +1218,9 @@ int main(){
   if( in=='Y' || in=='y' ) mycolor = WHITE;
   else mycolor = RED;
 
-  //  ret = search_place(turn, s, mycolor);
+   ret = search_place(turn, s, mycolor);
 
-  
+   /*
   for(n=0;n<20;n++){
     if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
       printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -1229,7 +1232,7 @@ int main(){
       }
     }
     }
-  
+   */
 
   
     while(1){
