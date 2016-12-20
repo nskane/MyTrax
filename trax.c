@@ -311,6 +311,8 @@ void Riichi(){
 	  else { x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]+1; }
 	riichi=m;
 	}
+
+	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 7 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 7) riichi = m;
       }
     }
   }
@@ -584,7 +586,6 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   int nn;
   int cnt=0;
 
- 
     
   for(i=0; i<10; i++){
     loop_force[i][0] = 0;
@@ -593,7 +594,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   force_flag = 0;
   
   loop_win = -1;
-
+  riichi = -1;
 
   if( board[x][y] != BLANK ) return -1;
   if( PlaceableTile[board[x + 1][y]][board[x][y - 1]][board[x - 1][y]][board[x][y + 1]] & (1 << tile) ){
@@ -680,7 +681,8 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       for(m=0; m<2; m++){
 	if(end[n][m] != 0 || start[n][m] != 0 ){
 	  if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
-	    printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
+	    //printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
+	  loop_win = m;
 	}
       }
     }
@@ -786,6 +788,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	    loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
 	  }
 	}
+
 	if( fin == 1 ){
 	  return color;
 	}
@@ -860,6 +863,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 		loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
 	      }
 	    }
+
 	    if( fin == 1 ){
 	      *rx = x;
 	      *ry = y;
@@ -936,10 +940,10 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     x = killer_x[depth];
     y = killer_y[depth];
     t = killer_t[depth];
-    //    printf("x=%d y=%d\n",x,y);
     if(board[x][y] == BLANK){
       if(board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1]){
 	if( place(x, y, t, bb, &bb_cnt) == 1 ){
+	  fprintf(stderr, "win=%d", loop_win);
 	  if( loop_win == color-1 ){ //自分のloopができた
 	    fin = 1;
 	  }else{
@@ -1106,8 +1110,8 @@ int search_place(int turn, char s[], int color){
   int bb[256], bb_cnt;
 
   
-  //for(max_depth = 1; max_depth <= MAX_DEPTH; max_depth += 2){
-  for(max_depth = 1; max_depth <= 5; max_depth += 2){//test用
+  for(max_depth = 1; max_depth <= MAX_DEPTH; max_depth += 2){
+  //  for(max_depth = 1; max_depth <= 5; max_depth += 2){//test用
     fprintf(stderr, "************ 探索深さ = %2d ************\n", max_depth);
     bzero(HASH_TBL, sizeof(HASH_TBL));
     ret = search(&x, &y, &t, color, 1);
