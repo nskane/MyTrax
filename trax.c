@@ -331,12 +331,12 @@ int line(int x, int y){
   int i,end_start1,end_start2;
   int mm=-1;
   int vect_cnt=0;
-  int win=0;
+  int win=-1;
   int vect_color=-1;//endとstartの両方が既存タイルにつながる色を保持
   int vect_red = 0;
   int vect_white = 0;
 
-  if(loop_win != -1)win = loop_win;
+  if(loop_win != -1) win = loop_win; 
     
   for(n=0; n<20; n++){
     tile_bit = board[x][y];
@@ -356,7 +356,7 @@ int line(int x, int y){
 	  if(m==0) vect_red++;
 	  else vect_white++;
 	  if(loop_win==1){
-	    //	  printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm); 
+	    //printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm);
 	    loop_win = mm; return 0;
 	  }
 	}
@@ -365,7 +365,8 @@ int line(int x, int y){
     }
   }
 
-  if(win != 0)loop_win = win;
+  if(win != -1)loop_win = win;
+
   vect_cnt = vect_red + vect_white;
   if( vect_red == 2 ) vect_color = 0;
   else if( vect_white == 2 ) vect_color = 1;
@@ -637,6 +638,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
         line(loop_force[nn][0], loop_force[nn][1]);
       }
 
+
     }else{//強制手が発生しない場合
 
       //片方か双方かをチェック
@@ -691,17 +693,17 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
     */
     
-
+    /*
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
 	if(end[n][m] != 0 || start[n][m] != 0 ){
 	  if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
 	    //printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
-	  loop_win = m;
+	    loop_win = m;
 	}
       }
-    }
-   
+      }*/
+    
     Riichi();
 
     return 1;
