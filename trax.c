@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 
 #define BMAX 512
@@ -55,6 +56,7 @@ char WINLOSS[HASHWIDTH+1]; // 16MB
 unsigned int hash_cnt;
 
 int x_min, x_max, y_min, y_max;
+double t1, t2;
 int max_depth;
 
 static int killer_x[MAX_DEPTH+1], killer_y[MAX_DEPTH+1], killer_t[MAX_DEPTH+1];
@@ -64,7 +66,12 @@ char mark[LLW+1] = {'\0','\0','\0','\\','\0','+','/','\0','\0','/','+','\0','\\'
 char *b_string[LLW+1] = {" ", "", "", "\\","","+","\x1b[31m/\x1b[0m","","","/","\x1b[31m+\x1b[0m","","\x1b[31m\\\x1b[0m"};
 
 
-
+double my_clock()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv.tv_sec + (double)tv.tv_usec*1e-6;
+}
 
 void initForceTile(){
   int i, j, k, l, m;
@@ -260,9 +267,6 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
   loop_end[n][1][m] = y;
 
 
-
-
-
   if((temp & RIGHT) != 0) {temp -= RIGHT ;end[n][m] = LEFT; loop_end_next[n][0][m] = x + 1;} 
   else if((temp & LEFT) != 0) {temp -=LEFT; end[n][m] = RIGHT; loop_end_next[n][0][m] = x - 1;} 
   else if((temp & UPPER) != 0) {temp -= UPPER; end[n][m] = LOWER; loop_end_next[n][1][m] = y -1;}
@@ -273,8 +277,7 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
   else if((temp & UPPER) != 0) {start[n][m] = LOWER; loop_start_next[n][1][m] = y - 1;}
   else if((temp & LOWER) != 0) {start[n][m] = UPPER; loop_start_next[n][1][m] = y + 1;}
   
-  //if(force_flag == 1)for(k=0; k<2; k++)printf("loop_end_next[%d][%d][%d] = %d loop_start_next[%d][%d][%d] = %d \n", 
-  //					      n, k, m, loop_end_next[n][k][m], n, k, m, loop_start_next[n][k][m] );
+
   return n;
 }
 
@@ -324,11 +327,11 @@ void Riichi(){
 
 int line(int x, int y){
 
-  int n, m, n1=-1, m1=-1, n2=-1, m2=-1, x1=x,y1=y; 
+  int i, n, m;
+  int n1=-1, m1=-1, n2=-1, m2=-1, end_start1, end_start2; //endとstart両方につながる場合に使う 
   int vect_flag=0;
   int change=0;
   unsigned char tile_bit;
-  int i,end_start1,end_start2;
   int mm=-1;
   int vect_cnt=0;
   int win=-1;
@@ -344,7 +347,7 @@ int line(int x, int y){
       if(end[n][m] != 0 || start[n][m] != 0 ){
 	if(m==1) tile_bit = 0x0f & ~tile_bit;      
 	if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
-	  if( (mm == 1 && m == 0) || (mm == 0 && m == 1) )  mm = -2;
+	  if( (mm == 1 && m == 0) || (mm == 0 && m == 1) )  mm = -2; // 赤、白どちらも既存のタイルにつながる場合
 	  else mm = m;
 	  loop_win=1;
 	  if(m==0) vect_red++;
@@ -365,8 +368,9 @@ int line(int x, int y){
     }
   }
 
-  if(win != -1)loop_win = win;
-
+  if(win != -1){
+    loop_win = win;
+  }
   vect_cnt = vect_red + vect_white;
   if( vect_red == 2 ) vect_color = 0;
   else if( vect_white == 2 ) vect_color = 1;
@@ -711,6 +715,25 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   return -1;
 }
 
+void xxyyt_to_string(int xx, int yy, int t, char s[])
+{
+  int s_cnt = 0;
+
+  if (xx == 0){
+    s[s_cnt++] = '@';
+  }else if(xx <= 26){
+    s[s_cnt++] = 'A' + xx - 1;
+  }else{
+    s[s_cnt++] = 'A' + ((xx-1)/26) - 1;
+    s[s_cnt++] = 'A' + ((xx-1)%26);
+  }
+  sprintf(&s[s_cnt],"%d", yy);
+  if (t == VERTICAL_W || t == HORIZONTAL_W) sprintf(&s[s_cnt],"%d+", yy);
+  else if (t == UPPER_LEFT_W || t == LOWER_RIGHT_W) sprintf(&s[s_cnt],"%d/", yy);
+  else sprintf(&s[s_cnt],"%d\\", yy);
+}
+
+
 int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
   int i, j, x, y, t, ret;
   int fin=0;
@@ -721,7 +744,6 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
   int bb[10000], bb_cnt;
   unsigned long long hash_backup = hash;
   int p_cnt = 0;
-  int myriichi, yrriichi;
 
   int n, m;
 
@@ -912,8 +934,6 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
   unsigned long long hash_backup = hash;
   int px[10000], py[10000], pt[10000];
   int p_cnt=0;
-  int myriichi, yrriichi;
-
 
   int n, m;
 
@@ -1135,6 +1155,15 @@ int search_place(int turn, char s[], int color){
     fprintf(stderr, "hash_cnt = %u\n", hash_cnt);
     if( ret ) break;
   }
+  if( ret == 0 ){
+    fprintf(stderr, "This problem is too difficult.\n");
+  }else if( ret == color ){
+    place(x, y, t, bb, &bb_cnt);
+    xxyyt_to_string(x - x_min_backup + 1 , y - y_min_backup + 1, t, s);
+  }else if( ret == 3 - color ){
+    strcpy(s, "LOST");
+    fprintf(stderr, "This problem is strange ?\n");
+  }
 
   return 0;
 }
@@ -1176,6 +1205,7 @@ int main(){
   int _time = -1;
   int n,m,l;
   char in;
+  double max_search_time = 0.0;
 
   for(n=0; n<20; n++){
     for(m=0; m<2; m++){
@@ -1192,6 +1222,17 @@ int main(){
 
   
   initForceTile();
+
+  for( i = 0; i < BMAX; i++){
+    for( j = 0; j < BMAX; j++){
+      random_t[i][j][VW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][HW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][LRW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][LLW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][URW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][ULW] = (random() << 63) | (random() << 32) | (random() << 1);
+    }
+  }
 
 
   //初期化重要
@@ -1258,8 +1299,21 @@ int main(){
 
   
 
+  t1 = my_clock();
+  ret = search_place(turn, s, mycolor);
+  t2 = my_clock();
 
-   ret = search_place(turn, s, mycolor);
+   printf("%s\n", s);
+   strcpy(notation[turn++], s);
+
+   if( t2 - t1 > max_search_time ) max_search_time = t2 - t1;
+   fprintf(stderr, "search time = %.6f\n", t2 - t1);
+   fprintf(stderr, "%s %s\n", color_s[mycolor], s);
+   show();
+   if( ret == 1 ){
+     fprintf(stderr, "%s WINS\n", color_s[mycolor]);
+     fprintf(stderr, "Max search time = %.6f\n", max_search_time);
+   }
 
    /* 
   for(n=0;n<20;n++){
