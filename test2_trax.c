@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 
 #define BMAX 512
@@ -55,6 +56,7 @@ char WINLOSS[HASHWIDTH+1]; // 16MB
 unsigned int hash_cnt;
 
 int x_min, x_max, y_min, y_max;
+double t1, t2;
 int max_depth;
 
 static int killer_x[MAX_DEPTH+1], killer_y[MAX_DEPTH+1], killer_t[MAX_DEPTH+1];
@@ -64,7 +66,12 @@ char mark[LLW+1] = {'\0','\0','\0','\\','\0','+','/','\0','\0','/','+','\0','\\'
 char *b_string[LLW+1] = {" ", "", "", "\\","","+","\x1b[31m/\x1b[0m","","","/","\x1b[31m+\x1b[0m","","\x1b[31m\\\x1b[0m"};
 
 
-
+double my_clock()
+{
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv.tv_sec + (double)tv.tv_usec*1e-6;
+}
 
 void initForceTile(){
   int i, j, k, l, m;
@@ -260,9 +267,6 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
   loop_end[n][1][m] = y;
 
 
-
-
-
   if((temp & RIGHT) != 0) {temp -= RIGHT ;end[n][m] = LEFT; loop_end_next[n][0][m] = x + 1;} 
   else if((temp & LEFT) != 0) {temp -=LEFT; end[n][m] = RIGHT; loop_end_next[n][0][m] = x - 1;} 
   else if((temp & UPPER) != 0) {temp -= UPPER; end[n][m] = LOWER; loop_end_next[n][1][m] = y -1;}
@@ -273,8 +277,7 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
   else if((temp & UPPER) != 0) {start[n][m] = LOWER; loop_start_next[n][1][m] = y - 1;}
   else if((temp & LOWER) != 0) {start[n][m] = UPPER; loop_start_next[n][1][m] = y + 1;}
   
-  //if(force_flag == 1)for(k=0; k<2; k++)printf("loop_end_next[%d][%d][%d] = %d loop_start_next[%d][%d][%d] = %d \n", 
-  //					      n, k, m, loop_end_next[n][k][m], n, k, m, loop_start_next[n][k][m] );
+
   return n;
 }
 
@@ -311,63 +314,71 @@ void Riichi(){
 	  else { x = loop_end_next[n][0][m]; y = loop_end_next[n][1][m]+1; }
 	riichi=m;
 	}
+
+	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 7 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 7) riichi = m;
       }
     }
   }
   
 
-  if( riichi !=-1 )printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
+  //if( riichi !=-1 )printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
 
 }
 
 int line(int x, int y){
 
-  int n, m, n1=-1, m1=-1, n2=-1, m2=-1, x1=x,y1=y; 
+  int i, n, m;
+  int n1=-1, m1=-1, n2=-1, m2=-1, end_start1, end_start2; //endとstart両方につながる場合に使う 
   int vect_flag=0;
   int change=0;
   unsigned char tile_bit;
-  int i,end_start1,end_start2;
   int mm=-1;
   int vect_cnt=0;
+  int win=-1;
   int vect_color=-1;//endとstartの両方が既存タイルにつながる色を保持
   int vect_red = 0;
   int vect_white = 0;
-  loop_win=-1;
 
-  //printf("x=%d y=%d\n", x, y);
-
-  for(n=0; n<10; n++){
+  if(loop_win != -1) win = loop_win; 
+    
+  for(n=0; n<20; n++){
     tile_bit = board[x][y];
     for(m=0; m<2; m++){
-      if(m==1) tile_bit = 0x0f & ~tile_bit;      
-      if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
-	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) )  mm = -2;
-	else mm = m;
-	loop_win=1;
-	if(m==0) vect_red++;
-	else vect_white++;
-      }
-      if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
-	if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
-	else mm = m;
-	if(m==0) vect_red++;
-        else vect_white++;
-	if(loop_win==1){
-	  printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm); 
-	  loop_win = mm; return 0;
+      if(end[n][m] != 0 || start[n][m] != 0 ){
+	if(m==1) tile_bit = 0x0f & ~tile_bit;      
+	if( loop_end_next[n][0][m] == x && loop_end_next[n][1][m] == y && (end[n][m] & tile_bit) != 0){
+	  if( (mm == 1 && m == 0) || (mm == 0 && m == 1) )  mm = -2; // 赤、白どちらも既存のタイルにつながる場合
+	  else mm = m;
+	  loop_win=1;
+	  if(m==0) vect_red++;
+	  else vect_white++;
 	}
+	if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
+	  if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
+	  else mm = m;
+	  if(m==0) vect_red++;
+	  else vect_white++;
+	  if(loop_win==1){
+	    //printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm);
+	    loop_win = mm; return 0;
+	  }
+	}
+	loop_win=-1;
       }
-      loop_win=-1;
     }
   }
- 
+
+  if(win != -1){
+    loop_win = win;
+  }
   vect_cnt = vect_red + vect_white;
   if( vect_red == 2 ) vect_color = 0;
   else if( vect_white == 2 ) vect_color = 1;
+
   //printf("mm=%d\n",mm);
   
   if(mm == -2 && vect_cnt!=3 ){//置いたタイルの赤、白どちらのラインもendかstartの片方に既存のタイルがつながる場合
-    for(n=0; n<10; n++){
+    for(n=0; n<20; n++){
       tile_bit = board[x][y];
       for(m=0; m<2; m++){
 	if(loop_start[n][0][m] != 0 || loop_end[n][0][m] != 0){
@@ -396,7 +407,7 @@ int line(int x, int y){
   
   
   if(mm!=-2){
-    for(n=0; n<10; n++){
+    for(n=0; n<20; n++){
       tile_bit = board[x][y];
       for(m=0; m<2; m++){
 	if(loop_start[n][0][m] != 0 || loop_end[n][0][m] != 0){
@@ -406,12 +417,12 @@ int line(int x, int y){
 	    loop_end[n][0][m] =x;
             loop_end[n][1][m]= y;
 
-	    if( vect_flag==0 && vect_cnt!=3){ //赤または白のどちらかがend start両方に既存タイルがつながり、片方の色のラインが新しくできる場合 
+	    if( vect_flag==0 && vect_cnt!=3 ){ //赤または白のどちらかがend start両方に既存タイルがつながり、片方の色のラインが新しくできる場合
 	      loop_make(x, y, tile_bit, n, m);
 	      n1=n; m1=m, end_start1=0;
-	    }else if( vect_color == m && n1 == -1 && m1 == -1 ) { n1=n; m1=m, end_start1=0; }
+	    }else if ( vect_color == m && n1 == -1 && m1 == -1 ){ n1=n; m1=m; end_start1=0; }
 	    else if( vect_color == m && n2 == -1 && m2 == -1 ){ n2=n; m2=m; end_start2=0; }
-	    
+
 	    if(change == RIGHT){ end[n][m] = LEFT; loop_end_next[n][0][m] += 1; }
 	    else if(change == LEFT){ end[n][m] = RIGHT; loop_end_next[n][0][m] -= 1;}
 	    else if(change == UPPER){ end[n][m] = LOWER; loop_end_next[n][1][m] -= 1; }
@@ -425,8 +436,8 @@ int line(int x, int y){
 	    if( vect_flag==0 && vect_cnt!=3 ){
 	      loop_make(x, y, tile_bit, n , m);
 	      n1=n; m1=m; end_start1=1; 
-	    }else if( vect_color == m && n1 == -1 && m1 == -1 ){ n1=n; m1=m; end_start1=1; }
-	    else if( vect_color == m && n1 == -1 && m1 == -1 ){ n2=n; m2=m; end_start2=1; }
+	    }else if ( vect_color == m && n1 == -1 && m1 == -1 ) { n1=n; m1=m; end_start1=1;}
+	    else if( vect_color == m && n2 == -1 && m2 == -1 ){ n2=n; m2=m; end_start2=1; }
 
 	    if(change == RIGHT){ start[n][m] = LEFT; loop_start_next[n][0][m] += 1; }
 	    else if(change == LEFT){ start[n][m] = RIGHT; loop_start_next[n][0][m] -= 1;}
@@ -593,7 +604,6 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   int nn;
   int cnt=0;
 
-  
     
   for(i=0; i<10; i++){
     loop_force[i][0] = 0;
@@ -601,7 +611,8 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
    }
   force_flag = 0;
   
-
+  loop_win = -1;
+  riichi = -1;
 
   if( board[x][y] != BLANK ) return -1;
   if( PlaceableTile[board[x + 1][y]][board[x][y - 1]][board[x - 1][y]][board[x][y + 1]] & (1 << tile) ){
@@ -630,6 +641,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 	if(loop_force[nn][0] != 0)
         line(loop_force[nn][0], loop_force[nn][1]);
       }
+
 
     }else{//強制手が発生しない場合
 
@@ -671,6 +683,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
     }
      
     
+    /*
     for(n=0;n<20;n++){
       if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
         printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -682,23 +695,44 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
         }
       }
       }
+    */
     
-
+    /*
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
 	if(end[n][m] != 0 || start[n][m] != 0 ){
 	  if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
-	    printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
+	    //printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
+	    loop_win = m;
 	}
       }
-    }
-   
+      }*/
+    
     Riichi();
 
     return 1;
   }
   return -1;
 }
+
+void xxyyt_to_string(int xx, int yy, int t, char s[])
+{
+  int s_cnt = 0;
+
+  if (xx == 0){
+    s[s_cnt++] = '@';
+  }else if(xx <= 26){
+    s[s_cnt++] = 'A' + xx - 1;
+  }else{
+    s[s_cnt++] = 'A' + ((xx-1)/26) - 1;
+    s[s_cnt++] = 'A' + ((xx-1)%26);
+  }
+  sprintf(&s[s_cnt],"%d", yy);
+  if (t == VERTICAL_W || t == HORIZONTAL_W) sprintf(&s[s_cnt],"%d+", yy);
+  else if (t == UPPER_LEFT_W || t == LOWER_RIGHT_W) sprintf(&s[s_cnt],"%d/", yy);
+  else sprintf(&s[s_cnt],"%d\\", yy);
+}
+
 
 int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
   int i, j, x, y, t, ret;
@@ -710,7 +744,6 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
   int bb[10000], bb_cnt;
   unsigned long long hash_backup = hash;
   int p_cnt = 0;
-  int myriichi, yrriichi;
 
   int n, m;
 
@@ -738,16 +771,22 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
     end_backup[n][1] = end[n][1];
     start_backup[n][0] = start[n][0];
     start_backup[n][1] = start[n][1];
-    for(m=0; m<2; m++) {
-      loop_end_backup[n][0][m] = loop_end[n][0][m];
-      loop_end_backup[n][1][m] = loop_end[n][1][m];
-      loop_start_backup[n][0][m] = loop_start[n][0][m];
-      loop_start_backup[n][1][m] = loop_start[n][1][m];
-      loop_end_next_backup[n][0][m] = loop_end_next[n][0][m];
-      loop_end_next_backup[n][1][m] = loop_end_next[n][1][m];
-      loop_start_next_backup[n][0][m] = loop_start_next[n][0][m];
-      loop_start_next_backup[n][1][m] = loop_start_next[n][1][m];
-    }
+    loop_end_backup[n][0][0] = loop_end[n][0][0];
+    loop_end_backup[n][0][1] = loop_end[n][0][1];
+    loop_end_backup[n][1][0] = loop_end[n][1][0];
+    loop_end_backup[n][1][1] = loop_end[n][1][1];
+    loop_start_backup[n][0][0] = loop_start[n][0][0];
+    loop_start_backup[n][0][1] = loop_start[n][0][1];
+    loop_start_backup[n][1][0] = loop_start[n][1][0];
+    loop_start_backup[n][1][1] = loop_start[n][1][1];
+    loop_end_next_backup[n][0][0] = loop_end_next[n][0][0];
+    loop_end_next_backup[n][0][1] = loop_end_next[n][0][1];
+    loop_end_next_backup[n][1][0] = loop_end_next[n][1][0];
+    loop_end_next_backup[n][1][1] = loop_end_next[n][1][1];
+    loop_start_next_backup[n][0][0] = loop_start_next[n][0][0];
+    loop_start_next_backup[n][0][1] = loop_start_next[n][0][1];
+    loop_start_next_backup[n][1][0] = loop_start_next[n][1][0];
+    loop_start_next_backup[n][1][1] = loop_start_next[n][1][1];  
   }
 
 
@@ -783,17 +822,24 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	  end[n][1] = end_backup[n][1];
 	  start[n][0] = start_backup[n][0];
 	  start[n][1] = start_backup[n][1];
-	  for(m=0; m<2; m++) {
-	    loop_end[n][0][m] = loop_end_backup[n][0][m];
-	    loop_end[n][1][m] = loop_end_backup[n][1][m];
-	    loop_start[n][0][m] = loop_start_backup[n][0][m];
-	    loop_start[n][1][m] = loop_start_backup[n][1][m];
-	    loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
-	    loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
-	    loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
-	    loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
-	  }
+	  loop_end[n][0][0] = loop_end_backup[n][0][0];
+	  loop_end[n][0][1] = loop_end_backup[n][0][1];
+	  loop_end[n][1][0] = loop_end_backup[n][1][0];
+	  loop_end[n][1][1] = loop_end_backup[n][1][1];
+	  loop_start[n][0][0] = loop_start_backup[n][0][0];
+	  loop_start[n][0][1] = loop_start_backup[n][0][1];
+	  loop_start[n][1][0] = loop_start_backup[n][1][0];
+	  loop_start[n][1][1] = loop_start_backup[n][1][1];
+	  loop_end_next[n][0][0] = loop_end_next_backup[n][0][0];
+	  loop_end_next[n][0][1] = loop_end_next_backup[n][0][1];
+	  loop_end_next[n][1][0] = loop_end_next_backup[n][1][0];
+	  loop_end_next[n][1][1] = loop_end_next_backup[n][1][1];
+	  loop_start_next[n][0][0] = loop_start_next_backup[n][0][0];
+	  loop_start_next[n][0][1] = loop_start_next_backup[n][0][1];
+	  loop_start_next[n][1][0] = loop_start_next_backup[n][1][0];
+	  loop_start_next[n][1][1] = loop_start_next_backup[n][1][1];
 	}
+
 	if( fin == 1 ){
 	  return color;
 	}
@@ -802,6 +848,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
   }
 
   
+
 
   for( y=y_min-1; y<=y_max+1; y++){
     for( x=x_min-1; x<=x_max+1; x++){
@@ -813,9 +860,10 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	}
 	for( i=0; i<6; i++){
 	  t = TLIST[i];
+	  //	  fprintf(stderr, "yrsearch_x=%d yrserach_y=%d loop_win = %d \n",x, y, loop_win);
 	  if( place( x, y, t, bb, &bb_cnt ) == 1 ){
 	    if( loop_win == color-1 ){ //自分のループができた
-	      killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
+ 	      killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
 	      fin = 1;
 	    }else{ // 相手のループを確認
 	      int flag = 0;
@@ -835,7 +883,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 		    if( depth==2 ) fprintf(stderr, "%c(M) ", mark[t]);
 		    //何もしない
 		  }else{
-		    if( depth==2 ) fprintf(stderr, " %c ", mark[t]);
+		    if( depth==2 ) fprintf(stderr, " %c", mark[t]);
 		    p_cnt++;
 		  }
 		}else{ //末端(depth == max_depth)
@@ -850,22 +898,30 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	    hash = hash_backup;
 	    x_min = x_min_backup; x_max = x_max_backup;
 	    y_min = y_min_backup; y_max = y_max_backup;
+
 	    for(n=0;n<20;n++){
 	      end[n][0] = end_backup[n][0];
 	      end[n][1] = end_backup[n][1];
 	      start[n][0] = start_backup[n][0];
 	      start[n][1] = start_backup[n][1];
-	      for(m=0; m<2; m++) {
-		loop_end[n][0][m] = loop_end_backup[n][0][m];
-		loop_end[n][1][m] = loop_end_backup[n][1][m];
-		loop_start[n][0][m] = loop_start_backup[n][0][m];
-		loop_start[n][1][m] = loop_start_backup[n][1][m];
-		loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
-		loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
-		loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
-		loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
-	      }
+	      loop_end[n][0][0] = loop_end_backup[n][0][0];
+	      loop_end[n][0][1] = loop_end_backup[n][0][1];
+	      loop_end[n][1][0] = loop_end_backup[n][1][0];
+	      loop_end[n][1][1] = loop_end_backup[n][1][1];
+	      loop_start[n][0][0] = loop_start_backup[n][0][0];
+	      loop_start[n][0][1] = loop_start_backup[n][0][1];
+	      loop_start[n][1][0] = loop_start_backup[n][1][0];
+	      loop_start[n][1][1] = loop_start_backup[n][1][1];
+	      loop_end_next[n][0][0] = loop_end_next_backup[n][0][0];
+	      loop_end_next[n][0][1] = loop_end_next_backup[n][0][1];
+	      loop_end_next[n][1][0] = loop_end_next_backup[n][1][0];
+	      loop_end_next[n][1][1] = loop_end_next_backup[n][1][1];
+	      loop_start_next[n][0][0] = loop_start_next_backup[n][0][0];
+	      loop_start_next[n][0][1] = loop_start_next_backup[n][0][1];
+	      loop_start_next[n][1][0] = loop_start_next_backup[n][1][0];
+	      loop_start_next[n][1][1] = loop_start_next_backup[n][1][1];
 	    }
+
 	    if( fin == 1 ){
 	      *rx = x;
 	      *ry = y;
@@ -877,7 +933,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
       }
     }
   }
-    if( p_cnt == 0 ) {
+  if( p_cnt == 0 ) {
       HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
       WINLOSS[hash & HASHWIDTH] = 3 - color; //ハッシュ登録
       hash_cnt++;
@@ -897,8 +953,6 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
   unsigned long long hash_backup = hash;
   int px[10000], py[10000], pt[10000];
   int p_cnt=0;
-  int myriichi, yrriichi;
-
 
   int n, m;
 
@@ -909,25 +963,31 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
   int loop_end_next_backup[loop_number][2][2];
   int end_backup[loop_number][2];
 
-
-
-
   for(n=0;n<20;n++){
-      end_backup[n][0] = end[n][0];
-      end_backup[n][1] = end[n][1];
-      start_backup[n][0] = start[n][0];
-      start_backup[n][1] = start[n][1];      
-      for(m=0; m<2; m++) {
-	loop_end_backup[n][0][m] = loop_end[n][0][m];
-	loop_end_backup[n][1][m] = loop_end[n][1][m];
-	loop_start_backup[n][0][m] = loop_start[n][0][m];
-	loop_start_backup[n][1][m] = loop_start[n][1][m];
-	loop_end_next_backup[n][0][m] = loop_end_next[n][0][m];
-	loop_end_next_backup[n][1][m] = loop_end_next[n][1][m];
-	loop_start_next_backup[n][0][m] = loop_start_next[n][0][m];
-	loop_start_next_backup[n][1][m] = loop_start_next[n][1][m];
-      }
+    end_backup[n][0] = end[n][0];
+    end_backup[n][1] = end[n][1];
+    start_backup[n][0] = start[n][0];
+    start_backup[n][1] = start[n][1];
+    loop_end_backup[n][0][0] = loop_end[n][0][0];
+    loop_end_backup[n][0][1] = loop_end[n][0][1];
+    loop_end_backup[n][1][0] = loop_end[n][1][0];
+    loop_end_backup[n][1][1] = loop_end[n][1][1];
+    loop_start_backup[n][0][0] = loop_start[n][0][0];
+    loop_start_backup[n][0][1] = loop_start[n][0][1];
+    loop_start_backup[n][1][0] = loop_start[n][1][0];
+    loop_start_backup[n][1][1] = loop_start[n][1][1];
+    loop_end_next_backup[n][0][0] = loop_end_next[n][0][0];
+    loop_end_next_backup[n][0][1] = loop_end_next[n][0][1];
+    loop_end_next_backup[n][1][0] = loop_end_next[n][1][0];
+    loop_end_next_backup[n][1][1] = loop_end_next[n][1][1];
+    loop_start_next_backup[n][0][0] = loop_start_next[n][0][0];
+    loop_start_next_backup[n][0][1] = loop_start_next[n][0][1];
+    loop_start_next_backup[n][1][0] = loop_start_next[n][1][0];
+    loop_start_next_backup[n][1][1] = loop_start_next[n][1][1];
   }
+
+
+
   
   /*
   //ハッシュの利用
@@ -945,13 +1005,14 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     if(board[x][y] == BLANK){
       if(board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1]){
 	if( place(x, y, t, bb, &bb_cnt) == 1 ){
+	  //	  fprintf(stderr, "win=%d", loop_win);
 	  if( loop_win == color-1 ){ //自分のloopができた
 	    fin = 1;
 	  }else{
 	    if( depth < max_depth ){
 	      int flag=0;
 	      if( loop_win == 2-color  ){
-		flag = 1;
+		flag = 1;// 相手のループができた
 	      }
 	      if(flag == 0){ //相手のループはできていない
 		int ret;
@@ -974,16 +1035,22 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	    end[n][1] = end_backup[n][1];
 	    start[n][0] = start_backup[n][0];
 	    start[n][1] = start_backup[n][1];
-	    for(m=0; m<2; m++) {
-	      loop_end[n][0][m] = loop_end_backup[n][0][m];
-	      loop_end[n][1][m] = loop_end_backup[n][1][m];
-	      loop_start[n][0][m] = loop_start_backup[n][0][m];
-	      loop_start[n][1][m] = loop_start_backup[n][1][m];
-	      loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
-	      loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
-	      loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
-	      loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
-	    }
+	    loop_end[n][0][0] = loop_end_backup[n][0][0];
+	    loop_end[n][0][1] = loop_end_backup[n][0][1];
+	    loop_end[n][1][0] = loop_end_backup[n][1][0];
+	    loop_end[n][1][1] = loop_end_backup[n][1][1];
+	    loop_start[n][0][0] = loop_start_backup[n][0][0];
+	    loop_start[n][0][1] = loop_start_backup[n][0][1];
+	    loop_start[n][1][0] = loop_start_backup[n][1][0];
+	    loop_start[n][1][1] = loop_start_backup[n][1][1];
+	    loop_end_next[n][0][0] = loop_end_next_backup[n][0][0];
+	    loop_end_next[n][0][1] = loop_end_next_backup[n][0][1];
+	    loop_end_next[n][1][0] = loop_end_next_backup[n][1][0];
+	    loop_end_next[n][1][1] = loop_end_next_backup[n][1][1];
+	    loop_start_next[n][0][0] = loop_start_next_backup[n][0][0];
+	    loop_start_next[n][0][1] = loop_start_next_backup[n][0][1];
+	    loop_start_next[n][1][0] = loop_start_next_backup[n][1][0];
+	    loop_start_next[n][1][1] = loop_start_next_backup[n][1][1];
 	  }
 	  if( fin == 1 ) {
 	    return color;
@@ -1056,21 +1123,27 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	    y_min = y_min_backup; y_max = y_max_backup;
 
 	    for(n=0;n<20;n++){
-	      end[n][0] = end_backup[n][0];
-	      end[n][1] = end_backup[n][1];
-	      start[n][0] = start_backup[n][0];
-	      start[n][1] = start_backup[n][1];
-	      for(m=0; m<2; m++) {
-		loop_end[n][0][m] = loop_end_backup[n][0][m];
-		loop_end[n][1][m] = loop_end_backup[n][1][m];
-		loop_start[n][0][m] = loop_start_backup[n][0][m];
-		loop_start[n][1][m] = loop_start_backup[n][1][m];
-		loop_end_next[n][0][m] = loop_end_next_backup[n][0][m];
-		loop_end_next[n][1][m] = loop_end_next_backup[n][1][m];
-		loop_start_next[n][0][m] = loop_start_next_backup[n][0][m];
-		loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
-	      }
-	    }
+              end[n][0] = end_backup[n][0];
+              end[n][1] = end_backup[n][1];
+              start[n][0] = start_backup[n][0];
+              start[n][1] = start_backup[n][1];
+              loop_end[n][0][0] = loop_end_backup[n][0][0];
+              loop_end[n][0][1] = loop_end_backup[n][0][1];
+              loop_end[n][1][0] = loop_end_backup[n][1][0];
+              loop_end[n][1][1] = loop_end_backup[n][1][1];
+              loop_start[n][0][0] = loop_start_backup[n][0][0];
+              loop_start[n][0][1] = loop_start_backup[n][0][1];
+              loop_start[n][1][0] = loop_start_backup[n][1][0];
+              loop_start[n][1][1] = loop_start_backup[n][1][1];
+              loop_end_next[n][0][0] = loop_end_next_backup[n][0][0];
+              loop_end_next[n][0][1] = loop_end_next_backup[n][0][1];
+              loop_end_next[n][1][0] = loop_end_next_backup[n][1][0];
+              loop_end_next[n][1][1] = loop_end_next_backup[n][1][1];
+              loop_start_next[n][0][0] = loop_start_next_backup[n][0][0];
+              loop_start_next[n][0][1] = loop_start_next_backup[n][0][1];
+              loop_start_next[n][1][0] = loop_start_next_backup[n][1][0];
+              loop_start_next[n][1][1] = loop_start_next_backup[n][1][1];
+            }
 
 
 	    if( fin == 1 ){
@@ -1098,7 +1171,6 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     *ry = py[r];
     *rt = pt[r];
   }
-  
   return 0;
 }
 
@@ -1112,13 +1184,22 @@ int search_place(int turn, char s[], int color){
   int bb[256], bb_cnt;
 
   
-  //for(max_depth = 1; max_depth <= MAX_DEPTH; max_depth += 2){
-  for(max_depth = 1; max_depth <= 5; max_depth += 2){//test用
+  for(max_depth = 1; max_depth <= MAX_DEPTH; max_depth += 2){
+  //  for(max_depth = 1; max_depth <= 5; max_depth += 2){//test用
     fprintf(stderr, "************ 探索深さ = %2d ************\n", max_depth);
     bzero(HASH_TBL, sizeof(HASH_TBL));
     ret = search(&x, &y, &t, color, 1);
     fprintf(stderr, "hash_cnt = %u\n", hash_cnt);
     if( ret ) break;
+  }
+  if( ret == 0 ){
+    fprintf(stderr, "This problem is too difficult.\n");
+  }else if( ret == color ){
+    place(x, y, t, bb, &bb_cnt);
+    xxyyt_to_string(x - x_min_backup + 1 , y - y_min_backup + 1, t, s);
+  }else if( ret == 3 - color ){
+    strcpy(s, "LOST");
+    fprintf(stderr, "This problem is strange ?\n");
   }
 
   return 0;
@@ -1161,6 +1242,7 @@ int main(){
   int _time = -1;
   int n,m,l;
   char in;
+  double max_search_time = 0.0;
 
   for(n=0; n<20; n++){
     for(m=0; m<2; m++){
@@ -1177,6 +1259,17 @@ int main(){
 
   
   initForceTile();
+
+  for( i = 0; i < BMAX; i++){
+    for( j = 0; j < BMAX; j++){
+      random_t[i][j][VW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][HW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][LRW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][LLW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][URW] = (random() << 63) | (random() << 32) | (random() << 1);
+      random_t[i][j][ULW] = (random() << 63) | (random() << 32) | (random() << 1);
+    }
+  }
 
 
   //初期化重要
@@ -1231,7 +1324,7 @@ int main(){
   y_max = y_min + h - 1;
   show();
 
-  /*  
+  
   fprintf(stderr, "次の手番は白番ですか？ (Y/N)\n");
 
   while(1){
@@ -1240,13 +1333,26 @@ int main(){
   }
   if( in=='Y' || in=='y' ) mycolor = WHITE;
   else mycolor = RED;
-  */
+
   
 
+  t1 = my_clock();
+  ret = search_place(turn, s, mycolor);
+  t2 = my_clock();
 
-  // ret = search_place(turn, s, mycolor);
+   printf("%s\n", s);
+   strcpy(notation[turn++], s);
 
-   
+   if( t2 - t1 > max_search_time ) max_search_time = t2 - t1;
+   fprintf(stderr, "search time = %.6f\n", t2 - t1);
+   fprintf(stderr, "%s %s\n", color_s[mycolor], s);
+   show();
+   if( ret == 1 ){
+     fprintf(stderr, "%s WINS\n", color_s[mycolor]);
+     fprintf(stderr, "Max search time = %.6f\n", max_search_time);
+   }
+
+   /* 
   for(n=0;n<20;n++){
     if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
       printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -1257,10 +1363,10 @@ int main(){
 	       n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
       }
     }
-    }
+    }*/
 
 
-  
+   /*
     while(1){
       ret = scanf("%s", ss);
       fprintf(stderr, "%s \n", ss);
@@ -1268,7 +1374,7 @@ int main(){
       ret = sn_convert_place(ss);
       show();
       }
-
+   */
     
     return 0;
 }
