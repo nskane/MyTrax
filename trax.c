@@ -332,6 +332,9 @@ int line(int x, int y){
   int mm=-1;
   int vect_cnt=0;
   int win=0;
+  int vect_color=-1;//endとstartの両方が既存タイルにつながる色を保持
+  int vect_red = 0;
+  int vect_white = 0;
 
   if(loop_win != -1)win = loop_win;
     
@@ -344,12 +347,14 @@ int line(int x, int y){
 	  if( (mm == 1 && m == 0) || (mm == 0 && m == 1) )  mm = -2;
 	  else mm = m;
 	  loop_win=1;
-	  vect_cnt++;
+	  if(m==0) vect_red++;
+	  else vect_white++;
 	}
 	if( loop_start_next[n][0][m] == x && loop_start_next[n][1][m] == y && (start[n][m] & tile_bit) != 0 ){
 	  if( (mm == 1 && m == 0) || (mm == 0 && m == 1) ) mm = -2;
 	  else mm = m;
-	  vect_cnt++;
+	  if(m==0) vect_red++;
+	  else vect_white++;
 	  if(loop_win==1){
 	    //	  printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm); 
 	    loop_win = mm; return 0;
@@ -361,7 +366,9 @@ int line(int x, int y){
   }
 
   if(win != 0)loop_win = win;
-
+  vect_cnt = vect_red + vect_white;
+  if( vect_red == 2 ) vect_color = 0;
+  else if( vect_white == 2 ) vect_color = 1;
 
   //printf("mm=%d\n",mm);
   
@@ -404,10 +411,13 @@ int line(int x, int y){
 	    change = tile_bit - end[n][m];
 	    loop_end[n][0][m] =x;
             loop_end[n][1][m]= y;
-	    if( vect_flag==0 ){
-	      if( vect_cnt!=3 ) loop_make(x, y, tile_bit, n, m);
+
+	    if( vect_flag==0 && vect_cnt!=3 ){ //赤または白のどちらかがend start両方に既存タイルがつながり、片方の色のラインが新しくできる場合
+	      loop_make(x, y, tile_bit, n, m);
 	      n1=n; m1=m, end_start1=0;
-	    }else{ n2=n; m2=m; end_start2=0;}
+	    }else if ( vect_color == m && n1 == -1 && m1 == -1 ){ n1=n; m1=m; end_start1=0; }
+	    else if( vect_color == m && n2 == -1 && m2 == -1 ){ n2=n; m2=m; end_start2=0; }
+
 	    if(change == RIGHT){ end[n][m] = LEFT; loop_end_next[n][0][m] += 1; }
 	    else if(change == LEFT){ end[n][m] = RIGHT; loop_end_next[n][0][m] -= 1;}
 	    else if(change == UPPER){ end[n][m] = LOWER; loop_end_next[n][1][m] -= 1; }
@@ -417,10 +427,13 @@ int line(int x, int y){
 	    change = tile_bit - start[n][m];
 	    loop_start[n][0][m]=x;
             loop_start[n][1][m]= y;
-	    if( vect_flag==0 ){
-	      if( vect_cnt!=3 )loop_make(x, y, tile_bit, n , m);
+
+	    if( vect_flag==0 && vect_cnt!=3 ){
+	      loop_make(x, y, tile_bit, n , m);
 	      n1=n; m1=m; end_start1=1; 
-	    }else{ n2=n; m2=m; end_start2=1;}
+	    }else if ( vect_color == m && n1 == -1 && m1 == -1 ) { n1=n; m1=m; end_start1=1;}
+	    else if( vect_color == m && n2 == -1 && m2 == -1 ){ n2=n; m2=m; end_start2=1; }
+
 	    if(change == RIGHT){ start[n][m] = LEFT; loop_start_next[n][0][m] += 1; }
 	    else if(change == LEFT){ start[n][m] = RIGHT; loop_start_next[n][0][m] -= 1;}
 	    else if(change == UPPER){ start[n][m] = LOWER; loop_start_next[n][1][m] -= 1; }
@@ -663,6 +676,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 
     }
      
+    
     /*
     for(n=0;n<20;n++){
       if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
@@ -676,6 +690,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
       }
     */
+    
 
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
@@ -943,7 +958,7 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     if(board[x][y] == BLANK){
       if(board[x-1][y] | board[x+1][y] | board[x][y-1] | board[x][y+1]){
 	if( place(x, y, t, bb, &bb_cnt) == 1 ){
-	  fprintf(stderr, "win=%d", loop_win);
+	  //	  fprintf(stderr, "win=%d", loop_win);
 	  if( loop_win == color-1 ){ //自分のloopができた
 	    fin = 1;
 	  }else{
@@ -1242,9 +1257,9 @@ int main(){
   
 
 
- ret = search_place(turn, s, mycolor);
+   ret = search_place(turn, s, mycolor);
 
- /*   
+   /* 
   for(n=0;n<20;n++){
     if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
       printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -1255,10 +1270,10 @@ int main(){
 	       n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
       }
     }
-    }
- */
+    }*/
 
-  
+
+   /*
     while(1){
       ret = scanf("%s", ss);
       fprintf(stderr, "%s \n", ss);
@@ -1266,7 +1281,7 @@ int main(){
       ret = sn_convert_place(ss);
       show();
       }
-
+   */
     
     return 0;
 }
