@@ -43,6 +43,7 @@ int force_flag = 0;
 int loop_force[10][2];
 int loop_win = -1;
 int riichi=-1;
+int lost_check=-1; //1手で自分も相手もリーチがかかる場合
 
 int board[BMAX][BMAX];
 char ForceTile[LLW+1][LLW+1][LLW+1][LLW+1];
@@ -287,10 +288,10 @@ void Riichi(){
   int x,y;
 
   riichi=-1;
-  
+  lost_check=-1;
+ 
   for(n=0; n<20; n++){
     for(m=0; m<2; m++){
-
       if(end[n][m] != 0 || start[n][m] != 0 ){
 	
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 1 && loop_end_next[n][1][m] == loop_start_next[n][1][m]) {
@@ -335,6 +336,11 @@ void Riichi(){
 	  }
 	
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 7 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 7) riichi = m;
+
+	if(riichi != -1){
+	  if(lost_check ==-1) lost_check = riichi;
+	  else if( lost_check != riichi ) lost_check = -2;
+	}
       }
     }
   }
@@ -358,6 +364,8 @@ int line(int x, int y){
   int vect_color=-1;//endとstartの両方が既存タイルにつながる色を保持
   int vect_red = 0;
   int vect_white = 0;
+
+  
 
   if(loop_win != -1) win = loop_win; 
     
@@ -387,6 +395,8 @@ int line(int x, int y){
       }
     }
   }
+
+  
 
   if(win != -1){
     loop_win = win;
@@ -628,7 +638,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   unsigned char tile_bit;
   int nn;
   int cnt=0;
-
+  int xx=0,yy=0;
     
   for(i=0; i<10; i++){
     loop_force[i][0] = 0;
@@ -638,6 +648,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   
   loop_win = -1;
   riichi = -1;
+
 
   if( board[x][y] != BLANK ) return -1;
   if( PlaceableTile[board[x + 1][y]][board[x][y - 1]][board[x - 1][y]][board[x][y + 1]] & (1 << tile) ){
@@ -653,11 +664,27 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
     if( y < y_min ) y_min = y;
     else if( y > y_max ) y_max = y;
 
-    
+
+
 
     tile_bit = tile;
     //printf("tile = %d UPPER = %d LOWER = %d LEFT = %d RIGHT = %d\n",tile_bit, tile_bit & UPPER, tile_bit & LOWER, tile_bit & LEFT, tile_bit & RIGHT);
 
+    if(x==257&&y==257){
+
+      fprintf(stderr, "\n\n");
+      for(n=0;n<20;n++){
+	if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
+	  fprintf(stderr, "\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
+	  for(m=0; m<2; m++) {
+	    fprintf(stderr, "loop_end[%d][x][%d] = %d loop_start[%d][x][%d] = %d end_next[%d][x][%d]=%d start_next[%d][x][%d]=%d\n",
+		    n, m, loop_end[n][0][m], n, m, loop_start[n][0][m], n, m, loop_end_next[n][0][m], n, m, loop_start_next[n][0][m]);
+	    fprintf(stderr, "loop_end[%d][y][%d] = %d loop_start[%d][y][%d] = %d end_next[%d][y][%d]=%d start_next[%d][y][%d]=%d\n",
+		    n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
+	  }
+	}
+      }
+    }
 
 
     if(force_flag==1){//強制手が発生する場合
@@ -708,7 +735,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
     }
      
     
-    /*
+    /*  
     for(n=0;n<20;n++){
       if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
         printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -873,7 +900,6 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	}
 	for( i=0; i<6; i++){
 	  t = TLIST[i];
-	  //	  fprintf(stderr, "yrsearch_x=%d yrserach_y=%d loop_win = %d \n",x, y, loop_win);
 	  if( place( x, y, t, bb, &bb_cnt ) == 1 ){
 	    if( loop_win == color-1 ){ //自分のループができた
  	      killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
@@ -896,7 +922,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 		    if( depth==2 ) fprintf(stderr, "%c(M) ", mark[t]);
 		    //何もしない
 		  }else{
-		    if( depth==2 ) fprintf(stderr, " %c", mark[t]);
+		    if( depth==2 ) fprintf(stderr, " %c ", mark[t]);
 		    p_cnt++;
 		  }
 		}else{ //末端(depth == max_depth)
@@ -1076,7 +1102,7 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	      }
 	      if( flag == 0 && riichi==-1 ){
 		//相手のループはできていないしリーチもしていないから読まない
-	      }else if( flag==0 && riichi == color-1 ){ //相手のループはできていない。自分がリーチ状態
+	      }else if( flag==0 && riichi == color-1 && lost_check != -2){ //相手のループはできていない。自分がリーチ状態
 		if( depth<max_depth ){
 		  int ret;
 		  int _rx, _ry, _rt;
@@ -1088,7 +1114,10 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 		    killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
 		    fin = 1; //自分が勝つ
 		  }else if( ret == 3-color ){ //相手が勝つ
-		    if( depth==1 ) fprintf(stderr, "%c(L)", mark[t]);
+		    if( depth==1 ) {
+		      fprintf(stderr, "%c(L)", mark[t]);
+		    }
+
 		  }else{ //勝敗がつかない
 		    if( depth==1 ){
 		      if( riichi == color-1 ) fprintf(stderr, " %c(R)", mark[t]);
@@ -1312,9 +1341,10 @@ int main(){
   y_max = y_min + h - 1;
   show();
 
+
   
   fprintf(stderr, "次の手番は白番ですか？ (Y/N)\n");
-
+  
   while(1){
     in = getc(stdin);
     if( in == 'Y' || in == 'y' || in == 'N' || in == 'n' ) break;
@@ -1339,8 +1369,8 @@ int main(){
      fprintf(stderr, "%s WINS\n", color_s[mycolor]);
      fprintf(stderr, "Max search time = %.6f\n", max_search_time);
    }
-
-   /* 
+  
+  /* 
   for(n=0;n<20;n++){
     if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
       printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
@@ -1351,10 +1381,10 @@ int main(){
 	       n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
       }
     }
-    }*/
+    }
 
 
-   /*
+  
     while(1){
       ret = scanf("%s", ss);
       fprintf(stderr, "%s \n", ss);
@@ -1362,7 +1392,7 @@ int main(){
       ret = sn_convert_place(ss);
       show();
       }
-   */
+  */
     
     return 0;
 }
