@@ -388,7 +388,8 @@ int line(int x, int y){
 	  else vect_white++;
 	  if(loop_win==1){
 	    //printf("ループが見つかりました。x=%d y=%d mm=%d\n",x,y,mm);
-	    loop_win = mm; return 0;
+	    if(win == -1)loop_win = m; 
+	    return 0;
 	  }
 	}
 	loop_win=-1;
@@ -638,7 +639,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
   unsigned char tile_bit;
   int nn;
   int cnt=0;
-  int xx=0,yy=0;
+
     
   for(i=0; i<10; i++){
     loop_force[i][0] = 0;
@@ -659,41 +660,23 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       hash = hash_orig;
       return -1; // 3 Same Color
     }
-    if( x < x_min ) x_min = x;
+    if( x < x_min ) x_min = x; 
     else if( x > x_max ) x_max = x;
-    if( y < y_min ) y_min = y;
+    if( y < y_min ) y_min = y; 
     else if( y > y_max ) y_max = y;
 
-
+ 
 
 
     tile_bit = tile;
-    //printf("tile = %d UPPER = %d LOWER = %d LEFT = %d RIGHT = %d\n",tile_bit, tile_bit & UPPER, tile_bit & LOWER, tile_bit & LEFT, tile_bit & RIGHT);
-
-    if(x==257&&y==257){
-
-      fprintf(stderr, "\n\n");
-      for(n=0;n<20;n++){
-	if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
-	  fprintf(stderr, "\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
-	  for(m=0; m<2; m++) {
-	    fprintf(stderr, "loop_end[%d][x][%d] = %d loop_start[%d][x][%d] = %d end_next[%d][x][%d]=%d start_next[%d][x][%d]=%d\n",
-		    n, m, loop_end[n][0][m], n, m, loop_start[n][0][m], n, m, loop_end_next[n][0][m], n, m, loop_start_next[n][0][m]);
-	    fprintf(stderr, "loop_end[%d][y][%d] = %d loop_start[%d][y][%d] = %d end_next[%d][y][%d]=%d start_next[%d][y][%d]=%d\n",
-		    n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
-	  }
-	}
-      }
-    }
-
+    
 
     if(force_flag==1){//強制手が発生する場合
 
       for(nn=0; nn<10; nn++){
-	if(loop_force[nn][0] != 0)
-        line(loop_force[nn][0], loop_force[nn][1]);
+        if(loop_force[nn][0] != 0)
+          line(loop_force[nn][0], loop_force[nn][1]);
       }
-
 
     }else{//強制手が発生しない場合
 
@@ -901,6 +884,7 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	for( i=0; i<6; i++){
 	  t = TLIST[i];
 	  if( place( x, y, t, bb, &bb_cnt ) == 1 ){
+	    //	    if(loop_win!=-1)fprintf(stderr, "win=%d", loop_win);
 	    if( loop_win == color-1 ){ //自分のループができた
  	      killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
 	      fin = 1;
