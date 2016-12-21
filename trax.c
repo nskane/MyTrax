@@ -371,6 +371,11 @@ int line(int x, int y){
   if(win != -1){
     loop_win = win;
   }
+
+  if( mm==-2 ) {
+    if( vect_red==2 || vect_white==2 ) mm = -1;
+  }
+
   vect_cnt = vect_red + vect_white;
   if( vect_red == 2 ) vect_color = 0;
   else if( vect_white == 2 ) vect_color = 1;
