@@ -237,8 +237,6 @@ int sn_convert_place(char s[]){
 
 int loop_make(int x, int y, unsigned char tile, int n, int m){
 
-  //printf("x = %d y = %d tile = %d n = %d m = %d \n", x, y, tile, n, m);
-
   int temp;
   int k=0,i;
  
@@ -251,11 +249,11 @@ int loop_make(int x, int y, unsigned char tile, int n, int m){
 
   if(force_flag==1){
     for(i=0; i<10; i++)
-      if( (loop_end[i][0][m] == x && loop_end[i][1][m] == y) &&  (loop_start[i][0][m] == x && loop_start[i][1][m] == y)) return 0;
+      if( (loop_end[i][0][m] == x && loop_end[i][1][m] == y) &&  (loop_start[i][0][m] == x && loop_start[i][1][m] == y)) 
+	return 0; //既に作られていたら何もしない
   }
-  //  printf("temp=%d n = %d m = %d\n", temp, n, m);
 
-  for(n = 0 ; n<20; n++) if(loop_end[n][0][m] == 0 && loop_start[n][0][m] == 0)break;
+  for(n = 0 ; n<20; n++) if(loop_end[n][0][m] == 0 && loop_start[n][0][m] == 0)break; //空いている配列を探す
 
   
   loop_start_next[n][0][m] = x;
@@ -339,14 +337,12 @@ void Riichi(){
 
 	if(riichi != -1){
 	  if(lost_check ==-1) lost_check = riichi;
-	  else if( lost_check != riichi ) lost_check = -2;
+	  else if( lost_check != riichi ) lost_check = -2; //赤、白　両方にリーチがかかる手は自殺手
 	}
       }
     }
   }
   
-
-
   //if( riichi !=-1 )printf("リーチが見つかりました. x=%d, y=%d\n",x,y);
 
 }
@@ -411,7 +407,7 @@ int line(int x, int y){
   if( vect_red == 2 ) vect_color = 0;
   else if( vect_white == 2 ) vect_color = 1;
 
-  //printf("mm=%d\n",mm);
+
   
   if(mm == -2 && vect_cnt!=3 ){//置いたタイルの赤、白どちらのラインもendかstartの片方に既存のタイルがつながる場合
     for(n=0; n<20; n++){
@@ -732,7 +728,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
       }
     */
     
-    /*
+
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
 	if(end[n][m] != 0 || start[n][m] != 0 ){
@@ -741,7 +737,7 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 	    loop_win = m;
 	}
       }
-      }*/
+    }
     
     Riichi();
 
