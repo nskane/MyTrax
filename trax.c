@@ -292,18 +292,18 @@ void Riichi(){
     for(m=0; m<2; m++){
       if(end[n][m] != 0 || start[n][m] != 0 ){
 	
-	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 1 && loop_end_next[n][1][m] == loop_start_next[n][1][m]) {
+	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 1 && loop_end_next[n][1][m] == loop_start_next[n][1][m]) { //1マス空いているリーチ
 	  riichi=m;
 	  x=loop_end_next[n][0][m];
 	  y=loop_end_next[n][1][m];
 	}
-	if(loop_end_next[n][0][m] == loop_start_next[n][0][m] && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 1) {
+	if(loop_end_next[n][0][m] == loop_start_next[n][0][m] && abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) == 1) { 
 	  riichi=m;
 	  x=loop_end_next[n][0][m];
           y=loop_end_next[n][1][m];
 	}
 
-	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 2 && loop_end_next[n][1][m] == loop_start_next[n][1][m] 
+	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) == 2 && loop_end_next[n][1][m] == loop_start_next[n][1][m]  //2マス空いているリーチ 
 	    && loop_end[n][1][m] != loop_end_next[n][1][m] && loop_start[n][1][m] != loop_start_next[n][1][m] ) {
 	  if(loop_end_next[n][0][m] > loop_start_next[n][0][m]){ x = loop_end_next[n][0][m]-1; y = loop_end_next[n][1][m]; }
 	  else { x = loop_end_next[n][0][m]+1; y = loop_end_next[n][1][m]; }
@@ -333,6 +333,7 @@ void Riichi(){
 	  if(board[x][y] == BLANK )riichi=m;
 	  }
 	
+	//ビクトリーラインのリーチ判定
 	if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 7 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 7) riichi = m;
 
 	if(riichi != -1){
@@ -713,28 +714,14 @@ int place(int x, int y, int tile, int bb[], int *bb_cnt)
 
     }
      
-    
-    /*  
-    for(n=0;n<20;n++){
-      if(end[n][0] != 0 ||  start[n][0] != 0 || end[n][1] != 0 || start[n][1] != 0){
-        printf("\nend_red=%d  start_red=%d end_white=%d start_white=%d\n", end[n][0], start[n][0], end[n][1], start[n][1]);
-        for(m=0; m<2; m++) {
-          printf("loop_end[%d][x][%d] = %d loop_start[%d][x][%d] = %d end_next[%d][x][%d]=%d start_next[%d][x][%d]=%d\n",
-                 n, m, loop_end[n][0][m], n, m, loop_start[n][0][m], n, m, loop_end_next[n][0][m], n, m, loop_start_next[n][0][m]);
-          printf("loop_end[%d][y][%d] = %d loop_start[%d][y][%d] = %d end_next[%d][y][%d]=%d start_next[%d][y][%d]=%d\n",
-                 n, m, loop_end[n][1][m], n, m, loop_start[n][1][m] , n, m, loop_end_next[n][1][m], n, m, loop_start_next[n][1][m]);
-        }
-      }
-      }
-    */
-    
+        
 
     for(n=0; n<20; n++){
       for(m=0; m<2; m++){
 	if(end[n][m] != 0 || start[n][m] != 0 ){
 	  if( abs(loop_end_next[n][0][m] - loop_start_next[n][0][m]) > 8 || abs(loop_end_next[n][1][m] - loop_start_next[n][1][m]) > 8)
 	    //printf("ビクトリーラインができました。 N=%d M=%d\n", n, m);
-	    loop_win = m;
+	    if(loop_win == -1) loop_win = m;
 	}
       }
     }
@@ -786,12 +773,12 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
   int end_backup[loop_number][2];
 
   
-  /*
+  
   //ハッシュの利用
   if( HASH_TBL[hash & HASHWIDTH] == ( hash | (color-1) ) ){
     return WINLOSS[hash & HASHWIDTH];
     }
-  */
+  
   //キラームーブチェック
   x = killer_x[depth];
   y = killer_y[depth];
@@ -858,8 +845,13 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	    loop_start_next[n][1][m] = loop_start_next_backup[n][1][m];
 	  }
 	}
-
+	
 	if( fin == 1 ){
+	
+	  HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
+	  WINLOSS[hash & HASHWIDTH] = color; //ハッシュ登録
+	  hash_cnt++;
+	
 	  return color;
 	}
       }
@@ -880,7 +872,6 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	for( i=0; i<6; i++){
 	  t = TLIST[i];
 	  if( place( x, y, t, bb, &bb_cnt ) == 1 ){
-	    //	    if(loop_win!=-1)fprintf(stderr, "win=%d", loop_win);
 	    if( loop_win == color-1 ){ //自分のループができた
  	      killer_x[depth] = x; killer_y[depth] = y; killer_t[depth] = t;
 	      fin = 1;
@@ -935,6 +926,11 @@ int yrsearch(int *rx, int *ry, int *rt, int color, int depth){
 	    }
 
 	    if( fin == 1 ){
+	
+	       HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
+               WINLOSS[hash & HASHWIDTH] = color; //ハッシュ登録
+               hash_cnt++;
+	
 	      *rx = x;
 	      *ry = y;
 	      *rt = t;
@@ -995,13 +991,13 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
       }
   }
   
-  /*
+  
   //ハッシュの利用
   if( depth > 1){
     if (HASH_TBL[hash & HASHWIDTH] == (hash | (color -1))){
       return WINLOSS[hash & HASHWIDTH]; //ハッシュ登録済み
     }
-    }*/
+    }
   
   
   if( depth > 1 ){
@@ -1053,6 +1049,11 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	    }
 	  }
 	  if( fin == 1 ) {
+	
+	    HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
+	    WINLOSS[hash & HASHWIDTH] = color; //ハッシュ登録
+	    hash_cnt++;
+	
 	    return color;
           }
 	}
@@ -1082,7 +1083,7 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
 	      }
 	      if( flag == 0 && riichi==-1 ){
 		//相手のループはできていないしリーチもしていないから読まない
-	      }else if( flag==0 && riichi == color-1 && lost_check != -2){ //相手のループはできていない。自分がリーチ状態
+	      }else if( flag==0 && riichi == color-1 && lost_check != -2){ //相手のループまたはリーチができていない。自分がリーチ状態
 		if( depth<max_depth ){
 		  int ret;
 		  int _rx, _ry, _rt;
@@ -1160,6 +1161,9 @@ int search(int *rx, int *ry, int *rt, int color, int depth){
     }
   }
   if( p_cnt==0 ){
+    HASH_TBL[hash & HASHWIDTH] = hash | (color - 1);
+    WINLOSS[hash & HASHWIDTH] = 3 - color; //ハッシュ登録
+    hash_cnt++;
     return 3-color;
   }
   if( depth==1 ){
@@ -1182,7 +1186,6 @@ int search_place(int turn, char s[], int color){
 
   
   for(max_depth = 1; max_depth <= MAX_DEPTH; max_depth += 2){
-  //  for(max_depth = 1; max_depth <= 5; max_depth += 2){//test用
     fprintf(stderr, "************ 探索深さ = %2d ************\n", max_depth);
     bzero(HASH_TBL, sizeof(HASH_TBL));
     ret = search(&x, &y, &t, color, 1);
@@ -1201,10 +1204,6 @@ int search_place(int turn, char s[], int color){
 
   return 0;
 }
-
-
-
-
 
 
 void show(){
